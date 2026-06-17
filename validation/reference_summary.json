@@ -1,0 +1,35 @@
+{
+  "Sydney": {
+    "lat": -33.8698,
+    "lon": 151.2083,
+    "tz": "Australia/Sydney",
+    "ref_annual_poa_kwh_m2": 1822.2,
+    "ref_isotropic_annual_kwh": 7288.6,
+    "ref_perez_poa_kwh_m2": 1899.7,
+    "ref_perez_annual_kwh": 7598.7,
+    "n_records": 8760,
+    "annual_ghi_kwh_m2": 1661.5
+  },
+  "Melbourne": {
+    "lat": -37.8136,
+    "lon": 144.9631,
+    "tz": "Australia/Melbourne",
+    "ref_annual_poa_kwh_m2": 1839.1,
+    "ref_isotropic_annual_kwh": 7356.3,
+    "ref_perez_poa_kwh_m2": 1920.6,
+    "ref_perez_annual_kwh": 7682.6,
+    "n_records": 8760,
+    "annual_ghi_kwh_m2": 1655.0
+  },
+  "Perth": {
+    "lat": -31.9505,
+    "lon": 115.8605,
+    "tz": "Australia/Perth",
+    "ref_annual_poa_kwh_m2": 2126.7,
+    "ref_isotropic_annual_kwh": 8506.8,
+    "ref_perez_poa_kwh_m2": 2204.8,
+    "ref_perez_annual_kwh": 8819.4,
+    "n_records": 8760,
+    "annual_ghi_kwh_m2": 1981.8
+  }
+}

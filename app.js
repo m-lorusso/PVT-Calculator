@@ -630,7 +630,7 @@ class TiltedSurfaceRadiation {
     const omegaRad = this.toRadians(this.hourAngle(hourN));
     const latRad   = this.toRadians(this.latitude);
     const sRad     = this.toRadians(this.tiltAngle);
-    const gammaRad = this.toRadians(this.surfaceAzimuth);
+    const gammaRad = this.toRadians(this.surfaceAzimuth - 180);
     const item1 = Math.sin(deltaRad)*Math.sin(latRad)*Math.cos(sRad);
     const item2 = Math.sin(deltaRad)*Math.cos(latRad)*Math.sin(sRad)*Math.cos(gammaRad);
     const item3 = Math.cos(deltaRad)*Math.cos(latRad)*Math.cos(sRad)*Math.cos(omegaRad);
@@ -930,12 +930,16 @@ function normalizeWeatherRecords(raw){
     if (!r || typeof r !== "object") continue;
     const dayN  = +(r.dayN ?? r.dayn ?? r.DayN ?? r.DAYN);
     let   hourN = +(r.hourN ?? r.hourn ?? r.HourN ?? r.HOURN);
+    // solarHour (optional): true solar time (0..24, 12 = solar noon), DST-free and
+    // meridian-corrected by the backend. Used for solar-geometry only. When absent
+    // (older backend), solar position falls back to local-clock hourN.
+    const solarHour = +(r.solarHour ?? r.solarhour ?? r.SolarHour ?? r.SOLARHOUR);
     const dni   = +(r.DNI ?? r.dni ?? r.Dni);
     const dhi   = +(r.DHI ?? r.dhi ?? r.Dhi);
     const ta    = +(r.Ta  ?? r.ta  ?? r.TA);
     const vwind = +(r.Vwind ?? r.vwind ?? r.VWIND ?? r.VWind);
     if (Number.isFinite(hourN) && hourN >= 1 && hourN <= 24) hourN = hourN - 1;
-    out.push({ dayN, hourN, dni, dhi, ta, vwind });
+    out.push({ dayN, hourN, solarHour, dni, dhi, ta, vwind });
   }
   return out;
 }
@@ -4171,7 +4175,7 @@ const DEFAULT_MODEL_COEFFS = {
 };
 const DEFAULT_SITE_SETTINGS = {
   tiltAngle: "30",
-  azimuthAngle: "180",
+  azimuthAngle: "0",
   albedo: "0.2",
   flowRate: "0.02",
   etaPv: "0.20"
@@ -4245,7 +4249,7 @@ async function calcAnnualPVT(){
     if (needed.some(v => !isFiniteNumber(v))){ setOutput("Please fill in all inputs with valid numbers.", true); return; }
     if (A <= 0){ setOutput("Collector / PV area must be greater than 0 m\u00b2.", true); return; }
     if (tiltAngle < 0 || tiltAngle > 90){ setOutput("Tilt angle must be between 0\u00b0 (horizontal) and 90\u00b0 (vertical).", true); return; }
-    if (azimuthAngle < -180 || azimuthAngle > 180){ setOutput("Surface azimuth must be between \u2212180\u00b0 and 180\u00b0 (0\u00b0 = south-facing, 180\u00b0 = north-facing). For Australia, use 180\u00b0.", true); return; }
+    if (azimuthAngle < -180 || azimuthAngle > 180){ setOutput("Surface azimuth must be between \u2212180\u00b0 and 180\u00b0 (0\u00b0 = north-facing, 90\u00b0 = east, 180\u00b0/\u2212180\u00b0 = south).", true); return; }
     if (albedo < 0 || albedo > 1){ setOutput("Ground albedo must be between 0 and 1 (typical grass/roof \u2248 0.2).", true); return; }
     if (!(flowRate > 0)){ setOutput("Flow rate must be greater than 0 L/s/m\u00b2 \u2014 a PVT collector needs coolant flow to capture heat (typical \u2248 0.02).", true); return; }
     if (etaPv < 0 || etaPv > 1){ setOutput("PV efficiency must be between 0 and 1.", true); return; }
@@ -4276,7 +4280,11 @@ async function calcAnnualPVT(){
     for (const r of met){
       if (![r.dayN,r.hourN,r.dni,r.dhi,r.ta,r.vwind].every(isFiniteNumber)) continue;
 
-      const res = calculator.calculate(r.dayN, r.hourN, r.dni, r.dhi);
+      // Solar geometry uses true solar time when the backend provides it; otherwise
+      // falls back to local-clock hourN (older backend). Demand scheduling below still
+      // uses r.hourN (clock time) as before.
+      const solarH = isFiniteNumber(r.solarHour) ? r.solarHour : r.hourN;
+      const res = calculator.calculate(r.dayN, solarH, r.dni, r.dhi);
       const G   = Math.max(0, res.totalIrradiance);
       const Tin = CURRENT_MAINS.byDay[r.dayN] ?? CURRENT_MAINS.annualAvgC;
 

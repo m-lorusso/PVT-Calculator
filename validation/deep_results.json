@@ -1,0 +1,86 @@
+{
+  "Sydney": {
+    "tz": "Australia/Sydney",
+    "decl_max_err_deg": 1.391,
+    "zenith_rms_deg": 6.74,
+    "zenith_max_err_deg": 14.6,
+    "ghi_closure_trueZ_pct": 0.04,
+    "ghi_closure_appZ_pct": 0.16,
+    "poa_app_total_kwh_m2": 1818.8,
+    "poa_pvlib_total_kwh_m2": 1822.2,
+    "poa_components_kwh_m2": {
+      "beam": [
+        1325.2,
+        1328.6
+      ],
+      "diffuse": [
+        471.3,
+        471.3
+      ],
+      "ground": [
+        22.3,
+        22.3
+      ]
+    },
+    "peak_timing_shift_hours": -0.17,
+    "pv_const_eta_kwh": 7288.6,
+    "pv_tempcorr_uncooled_kwh": 7108.1,
+    "pv_temp_loss_pct_if_uncooled": -2.5
+  },
+  "Melbourne": {
+    "tz": "Australia/Melbourne",
+    "decl_max_err_deg": 1.391,
+    "zenith_rms_deg": 9.53,
+    "zenith_max_err_deg": 18.82,
+    "ghi_closure_trueZ_pct": 0.07,
+    "ghi_closure_appZ_pct": 1.68,
+    "poa_app_total_kwh_m2": 1864.9,
+    "poa_pvlib_total_kwh_m2": 1839.1,
+    "poa_components_kwh_m2": {
+      "beam": [
+        1381.1,
+        1355.6
+      ],
+      "diffuse": [
+        461.2,
+        461.2
+      ],
+      "ground": [
+        22.5,
+        22.2
+      ]
+    },
+    "peak_timing_shift_hours": -0.4,
+    "pv_const_eta_kwh": 7356.3,
+    "pv_tempcorr_uncooled_kwh": 7169.0,
+    "pv_temp_loss_pct_if_uncooled": -2.5
+  },
+  "Perth": {
+    "tz": "Australia/Perth",
+    "decl_max_err_deg": 1.391,
+    "zenith_rms_deg": 3.23,
+    "zenith_max_err_deg": 6.74,
+    "ghi_closure_trueZ_pct": 0.02,
+    "ghi_closure_appZ_pct": 1.61,
+    "poa_app_total_kwh_m2": 2149.4,
+    "poa_pvlib_total_kwh_m2": 2126.7,
+    "poa_components_kwh_m2": {
+      "beam": [
+        1687.7,
+        1665.4
+      ],
+      "diffuse": [
+        434.7,
+        434.7
+      ],
+      "ground": [
+        27.0,
+        26.6
+      ]
+    },
+    "peak_timing_shift_hours": -0.2,
+    "pv_const_eta_kwh": 8506.8,
+    "pv_tempcorr_uncooled_kwh": 8157.0,
+    "pv_temp_loss_pct_if_uncooled": -4.1
+  }
+}
