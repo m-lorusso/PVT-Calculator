@@ -3715,7 +3715,7 @@ function syncIndustrySelectionUI(industryKey, resetThroughput=false){
 //  from, and how the supply side and demand side meet in the middle.
 // ================================================================
 function buildHowItWorksSvg(){
-  const W = 860, H = 700;
+  const W = 860, H = 820;
   const parts = [];
 
   // Small helpers: a rounded box with centred multi-line text, and an arrow.
@@ -3739,32 +3739,34 @@ function buildHowItWorksSvg(){
   arrow(430, 58, 430, 86);
   box(290, 88, 280, 44, ["2. Geocoding", "OpenStreetMap → latitude / longitude"], "#fdfdfd", "#9fb4c6");
   arrow(430, 132, 430, 160);
-  box(250, 162, 360, 56, ["3. Weather download", "TMY API (local or hosted) pulls a typical", "year from the EU PVGIS satellite database"], "#fdfdfd", "#9fb4c6");
-  arrow(430, 218, 430, 246);
-  box(250, 248, 360, 44, ["8,760 hourly weather records", "sunshine · air temperature · wind"], "#eef6ff", "#7da7cf");
+  box(250, 162, 360, 56, ["3. Weather download", "TMY API (local or hosted) pulls a typical", "year from the PVGIS satellite database"], "#fdfdfd", "#9fb4c6");
+  arrow(430, 218, 430, 248);
+  box(250, 250, 360, 48, ["8,760 hourly weather records", "sunshine · air temperature · wind"], "#eef6ff", "#7da7cf");
 
-  // Split into the two sides
-  arrow(340, 292, 220, 330, "supply side");
-  arrow(520, 292, 640, 330, "demand side");
+  // Split into the two sides — longer diagonals give clear breathing room before the columns
+  arrow(340, 298, 190, 368, "supply side");
+  arrow(520, 298, 670, 368, "demand side");
+
+  // Column headings sit below the arrow endpoints with a small gap
+  parts.push(`<text x="190" y="376" text-anchor="middle" font-size="12" font-weight="700" fill="#1565c0" letter-spacing="1">SOLAR SUPPLY</text>`);
+  parts.push(`<text x="670" y="376" text-anchor="middle" font-size="12" font-weight="700" fill="#1d8a5f" letter-spacing="1">SITE DEMAND</text>`);
 
   // Left column: SUPPLY
-  parts.push(`<text x="220" y="324" text-anchor="middle" font-size="12" font-weight="700" fill="#1565c0" letter-spacing="1">SOLAR SUPPLY</text>`);
-  box(80, 334, 280, 56, ["4a. Solar geometry", "tilt, azimuth and albedo turn sun position", "into irradiance on the collector"], "#f4f9ff", "#7da7cf");
-  arrow(220, 390, 220, 418);
-  box(80, 420, 280, 56, ["5a. PVT panel model", "PV efficiency → electricity (kWh)", "thermal model → useful heat (kWh)"], "#f4f9ff", "#7da7cf");
+  box(40, 390, 300, 64, ["4a. Solar geometry", "tilt, azimuth and albedo turn sun position", "into irradiance on the collector"], "#f4f9ff", "#7da7cf");
+  arrow(190, 454, 190, 484);
+  box(40, 486, 300, 64, ["5a. PVT panel model", "PV efficiency → electricity (kWh)", "thermal model → useful heat (kWh)"], "#f4f9ff", "#7da7cf");
 
   // Right column: DEMAND
-  parts.push(`<text x="640" y="324" text-anchor="middle" font-size="12" font-weight="700" fill="#1d8a5f" letter-spacing="1">SITE DEMAND</text>`);
-  box(500, 334, 280, 56, ["4b. Mains water temperature", "BC-Aus model (NREL method refitted to", "AS/NZS 4234 Australian climate zones)"], "#f2fbf6", "#8fc9a6");
-  arrow(640, 390, 640, 418);
-  box(500, 420, 280, 56, ["5b. Industry load profiles", "dairy / brewery / hotel / aquatic schedules", "→ hourly heat + electricity demand"], "#f2fbf6", "#8fc9a6");
+  box(520, 390, 300, 64, ["4b. Mains water temperature", "BC-Aus model (NREL method refitted to", "AS/NZS 4234 Australian climate zones)"], "#f2fbf6", "#8fc9a6");
+  arrow(670, 454, 670, 484);
+  box(520, 486, 300, 64, ["5b. Industry load profiles", "dairy / brewery / hotel / aquatic schedules", "→ hourly heat + electricity demand"], "#f2fbf6", "#8fc9a6");
 
   // Converge
-  arrow(220, 476, 360, 522);
-  arrow(640, 476, 500, 522);
-  box(290, 524, 280, 56, ["6. Hour-by-hour matching", "every hour: solar covers demand first;", "boiler + grid cover the rest; spare PV exports"], "#fffbe6", "#d9c25c");
-  arrow(430, 580, 430, 608);
-  box(250, 610, 360, 64, ["7. Results", "annual energy, bill savings, payback,", "solar fractions and CO₂-e avoided"], "#0f4f34", "#0c3f2a", "#ffffff");
+  arrow(190, 550, 345, 606);
+  arrow(670, 550, 515, 606);
+  box(290, 608, 280, 58, ["6. Hour-by-hour matching", "every hour: solar covers demand first;", "boiler + grid cover the rest; spare PV exports"], "#fffbe6", "#d9c25c");
+  arrow(430, 666, 430, 696);
+  box(250, 698, 360, 68, ["7. Results", "annual energy, bill savings, payback,", "solar fractions and CO₂-e avoided"], "#0f4f34", "#0c3f2a", "#ffffff");
 
   return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
       <defs><marker id="flowArrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#5a6e80"/></marker></defs>
