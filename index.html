@@ -63,10 +63,11 @@
             <input id="albedo" type="number" min="0" max="1" step="0.01" value="0.2" />
 
             <label for="flowRate">Flow Rate (L/s/m&sup2;):</label>
-            <input id="flowRate" type="number" min="0" step="0.001" value="0.02" />
+            <input id="flowRate" type="number" min="0.001" step="0.001" value="0.02" />
 
-            <label for="etaPv">PV efficiency &eta; (0&ndash;1):</label>
+            <label for="etaPv">PV efficiency &eta;<sub>STC</sub> (0&ndash;1):</label>
             <input id="etaPv" type="number" min="0" max="1" step="0.01" value="0.20" />
+            <div class="note full-row" style="margin:-2px 0 4px;">Nominal efficiency at Standard Test Conditions (25&deg;C cell, 1000 W/m&sup2;). Held constant &mdash; no cell-temperature derating, inverter, or soiling losses are applied, so PV output is an optimistic (nameplate) estimate.</div>
 
             <div class="strike-row">
               <label for="tin">Inlet temperature Tin (&deg;C):</label>
@@ -106,6 +107,7 @@
                 <input id="pvtA1" type="number" step="0.000000001" value="-10.52839866" />
                 <label for="pvtA2">PVT a2:</label>
                 <input id="pvtA2" type="number" step="0.000000001" value="-0.008135537" />
+                <div class="full-row" style="margin-top:6px;"><button type="button" class="secondary-action" onclick="resetModelACoeffs()">Reset Model A coefficients to defaults</button></div>
               </div>
             </div>
 
@@ -136,6 +138,7 @@
                 <input id="isoTout0" type="number" step="0.1" value="40" />
                 <label for="isoIterMax">Max iterations (Newton):</label>
                 <input id="isoIterMax" type="number" min="1" max="10" step="1" value="5" />
+                <div class="full-row" style="margin-top:6px;"><button type="button" class="secondary-action" onclick="resetModelBCoeffs()">Reset Model B coefficients to defaults</button></div>
               </div>
             </div>
           </div>

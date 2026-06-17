@@ -805,6 +805,11 @@ function getReportEmailEndpoints(){
   return isLocalFrontend() ? [localEndpoint] : [remoteEndpoint];
 }
 
+function setTmyLoadStatus(msg){
+  const el = document.getElementById("locConfirm");
+  if (el && msg) el.innerHTML = `<span style="color:#8a6d00;">${escapeHtml(msg)}</span>`;
+}
+
 async function fetchTMY(lat, lon){
   const cacheKey = makeLocCacheKey(lat, lon);
   if (TMY_CACHE.has(cacheKey)) return TMY_CACHE.get(cacheKey);
@@ -815,6 +820,9 @@ async function fetchTMY(lat, lon){
   for (const endpoint of getTMYEndpoints()){
     for (let attempt = 1; attempt <= endpoint.attempts; attempt++){
       try {
+        if (/hosted/i.test(endpoint.label)){
+          setTmyLoadStatus("Contacting the hosted weather service — this can take up to ~1 minute if it is waking up…");
+        }
         const resp = await fetchWithTimeout(endpoint.url + query, { headers:{"Accept":"application/json"} }, endpoint.timeoutMs);
         if (!resp.ok){
           let detail = "";
@@ -3860,6 +3868,26 @@ function buildIndustryChartSet(opts){
 }
 
 // ================================================================
+//  MODEL COEFFICIENT DEFAULTS  (single source of truth for "reset")
+// ================================================================
+const DEFAULT_MODEL_COEFFS = {
+  pvtA0: "0.279952866", pvtA1: "-10.52839866", pvtA2: "-0.008135537",
+  isoEta0: "0.762", isoA1: "3.93", isoA2: "0.0095", isoA3: "0",
+  isoA4: "0", isoA6: "0", isoA8: "0", isoTout0: "40", isoIterMax: "5"
+};
+function resetCoeffs(ids){
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && DEFAULT_MODEL_COEFFS[id] != null){
+      el.value = DEFAULT_MODEL_COEFFS[id];
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+}
+function resetModelACoeffs(){ resetCoeffs(["pvtA0","pvtA1","pvtA2"]); }
+function resetModelBCoeffs(){ resetCoeffs(["isoEta0","isoA1","isoA2","isoA3","isoA4","isoA6","isoA8","isoTout0","isoIterMax"]); }
+
+// ================================================================
 //  MAIN CALCULATION
 // ================================================================
 async function calcAnnualPVT(){
@@ -3909,7 +3937,7 @@ async function calcAnnualPVT(){
     if (tiltAngle < 0 || tiltAngle > 90){ setOutput("Tilt angle must be between 0\u00b0 (horizontal) and 90\u00b0 (vertical).", true); return; }
     if (azimuthAngle < -180 || azimuthAngle > 180){ setOutput("Surface azimuth must be between \u2212180\u00b0 and 180\u00b0 (0\u00b0 = facing the equator).", true); return; }
     if (albedo < 0 || albedo > 1){ setOutput("Ground albedo must be between 0 and 1 (typical grass/roof \u2248 0.2).", true); return; }
-    if (flowRate < 0){ setOutput("Flow Rate must be \u2265 0.", true); return; }
+    if (!(flowRate > 0)){ setOutput("Flow rate must be greater than 0 L/s/m\u00b2 \u2014 a PVT collector needs coolant flow to capture heat (typical \u2248 0.02).", true); return; }
     if (etaPv < 0 || etaPv > 1){ setOutput("PV efficiency must be between 0 and 1.", true); return; }
 
     const totalFlow_kg_hr = flowRate * A * 3600;
@@ -3951,9 +3979,13 @@ async function calcAnnualPVT(){
         th_W = etaTh * G * A;
       } else {
         // Model B: ISO 9806 Eq.12 with Newton iteration
-        const EL  = SIGMA * Math.pow(r.ta + 273.15, 4);
-        const Ta4 = SIGMA * Math.pow(r.ta + 273.15, 4);
-        const u   = r.vwind || 0;
+        const Ta_K = r.ta + 273.15;
+        const Ta4  = SIGMA * Math.pow(Ta_K, 4);            // black-body flux at ambient temp
+        // Sky long-wave irradiance E_L. TMY carries no measured E_L, so use Swinbank's
+        // clear-sky estimate L_down = 5.31e-13 * Ta_K^6 (W/m^2). (E_L - sigma*Ta^4) is then
+        // negative, i.e. a net radiative loss to the sky. Only active when a4 (isoA4) > 0.
+        const EL   = 5.31e-13 * Math.pow(Ta_K, 6);
+        const u    = r.vwind || 0;
         if (G > 1e-6 && totalFlow_kg_hr > 1e-12) {
           const mdot_cp = (totalFlow_kg_hr / 3600) * 4184; // W/K
           let Tout_iter = isoTout0;
@@ -4011,12 +4043,20 @@ async function calcAnnualPVT(){
     // 4) Build supply-side results HTML
     const capex            = capexPerM2 * A;
     const annualSavingPV   = E_pv_kWh * electricityPrice;
+    // Useful solar heat displaces boiler gas: kWh_th ->(x3.6) MJ_heat ->(/boilerEff) MJ_fuel
+    // ->(xgasPrice) AUD. Same formula as the demand-matched industry section, applied to the
+    // full supply. This credits 100% utilisation of BOTH streams (the PV term already assumes
+    // 100% self-consumption), so the supply card is an explicit upper bound, not demand-matched.
+    const annualSavingHeat = (E_th_kWh * 3.6 / boilerEff) * gasPrice;
     const opexAnnual       = capex * opexRate;
-    const netAnnualBenefit = annualSavingPV - opexAnnual;
+    const netAnnualBenefit = annualSavingPV + annualSavingHeat - opexAnnual;
     const N = systemLife;
     const CRF = discountRate > 1e-9
       ? discountRate * Math.pow(1 + discountRate, N) / (Math.pow(1 + discountRate, N) - 1)
       : 1 / N;
+    // f_th2e converts thermal kWh to electrical-equivalent kWh for the CAPEX split only.
+    // = 1 treats 1 kWh of heat as equal in value to 1 kWh of electricity (a simplifying
+    // assumption, NOT an exergy/quality weighting). Affects only the PV/thermal CAPEX share.
     const f_th2e      = 1;
     const totalEnergyEq = E_pv_kWh + E_th_kWh * f_th2e;
     const pvShare     = totalEnergyEq > 1e-9 ? E_pv_kWh / totalEnergyEq : 0.5;
@@ -4045,7 +4085,7 @@ async function calcAnnualPVT(){
         <div class="annual-summary-item">
           <span>PV electricity</span>
           <strong>${fmtE(E_pv_kWh,1,'kWh')}</strong>
-          <small>Annual electrical generation from the PVT area.</small>
+          <small>Annual electrical generation at nominal STC efficiency (no cell-temperature derating, inverter, or soiling losses).</small>
         </div>
         <div class="annual-summary-item">
           <span>PVT thermal</span>
@@ -4060,7 +4100,7 @@ async function calcAnnualPVT(){
         <div class="annual-summary-item annual-finance ${netAnnualBenefit>=0?'':'negative'}">
           <span>PVT supply value</span>
           <strong>${fmtC(netAnnualBenefit)} /yr</strong>
-          <small>Supply-side PV value after annual OPEX; not matched to industry demand.</small>
+          <small>Supply potential (PV + displaced heat) after OPEX, valued at 100% utilisation — an upper bound, not matched to demand. See the industry section for demand-matched savings.</small>
         </div>
       </div>
       <div class="annual-actions">
@@ -4079,7 +4119,7 @@ async function calcAnnualPVT(){
         <tr><td><b>CAPEX</b> (${fmtE(capexPerM2,0,'AUD/m\u00B2')} &times; ${fmtE(A,1,'m\u00B2')})</td><td class="num">${fmtC(capex)}</td></tr>
         <tr><td><b>OPEX (annual)</b></td><td class="num">${fmtC(opexAnnual)} /yr</td></tr>
         <tr><td><b>Annual Electricity Saving</b></td><td class="num"><span class="ok">${fmtC(annualSavingPV)} /yr</span></td></tr>
-        <tr><td><b>Annual Heat Saving</b></td><td class="num">Not included yet</td></tr>
+        <tr><td><b>Annual Heat Saving</b> (gas displaced @ ${(boilerEff*100).toFixed(0)}% boiler)</td><td class="num"><span class="ok">${fmtC(annualSavingHeat)} /yr</span></td></tr>
         <tr><td><b>Annual Net Benefit</b></td><td class="num"><span class="${netAnnualBenefit>=0?'ok':'err'}">${fmtC(netAnnualBenefit)} /yr</span></td></tr>
         <tr><td><b>Simple Payback Period (SPP)</b></td><td class="num">${spp != null ? fmtE(spp,1,'years') : '&mdash;'}</td></tr>
         <tr><td><b>NPV (${N} yr @ ${fmtE(discountRate*100,1,'%')})</b></td><td class="num"><span class="${npv>=0?'ok':'err'}">${fmtC(npv)}</span></td></tr>
@@ -4091,7 +4131,7 @@ async function calcAnnualPVT(){
         <tr><td><b>Combined LCOE</b> (heat&rarr;electricity equiv.)</td><td class="num">${lcoeCombo != null ? fmtC(lcoeCombo)+' /kWh_eq' : '&mdash;'}</td></tr>
         <tr style="background:#fffbe6;"><td style="font-size:11px;color:#888;" colspan="2">
           CAPEX split: PV ${fmtE(pvShare*100,1,'%')} / Thermal ${fmtE(thShare*100,1,'%')} &nbsp;|&nbsp;
-          CRF = ${fmtE(CRF,5)} &nbsp;|&nbsp; Heat-to-elec equiv. = ${fmtE(f_th2e,3)}
+          CRF = ${fmtE(CRF,5)} &nbsp;|&nbsp; Heat-to-elec equiv. = ${fmtE(f_th2e,3)} (1 kWh heat valued as 1 kWh electricity for the split)
         </td></tr>
       </table>
       </div>
