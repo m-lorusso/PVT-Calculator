@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Annual PVT Calculator</title>
+  <meta name="description" content="Estimates annual energy output, savings and payback of photovoltaic-thermal (PVT) solar systems for Australian commercial sites." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Chart.js v4.5.1 vendored locally (assets/vendor/) so charts work offline / on flaky wifi. -->
+  <script src="assets/vendor/chart.umd.min.js"></script>
+  <script src="bc_aus_zone_constants.js"></script>
+</head>
+
+<body>
+<div class="wrap">
+  <div class="brand-hero" style="position:relative;">
+    <div class="brand-logos">
+      <img class="brand-logo brand-logo-coolsheet" src="assets/coolsheet-logo.jpg" alt="Coolsheet logo" />
+      <img class="brand-logo brand-logo-unsw" src="assets/unsw-logo.jpg" alt="UNSW logo" />
+    </div>
+    <h1 class="brand-title">Annual PVT Calculator</h1>
+    <button id="btnHowItWorks" type="button" class="how-it-works-btn">How this calculator works</button>
+    <div class="brand-meta" style="position:absolute;bottom:10px;right:14px;text-align:right;">
+      <span style="font-size:11px;font-style:italic;color:rgba(255,255,255,0.35);">Version 10.3</span><br/>
+      <label style="font-size:11px;color:rgba(255,255,255,0.35);cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-top:4px;">
+        <input type="checkbox" id="chkHideMains" style="width:auto;margin:0;cursor:pointer;" onchange="onTestingModeChange();" />
+        Testing
+      </label>
+    </div>
+  </div>
+
+  <!-- Panel 1: PVT Supply Parameters -->
+  <div class="panel">
+    <div class="grid">
+      <div class="step-kicker full-row">Step 1 &middot; Site &amp; PVT system</div>
+      <label for="addressInput"><b>Address:</b></label>
+      <div>
+        <input id="addressInput" type="text" placeholder="e.g. 1 George St, Sydney NSW, Australia" />
+        <div class="address-actions">
+          <div class="btns">
+            <button id="btnLoadTMY" type="button">Geocode &amp; Load TMY</button>
+          </div>
+          <div id="locConfirm" class="note"></div>
+        </div>
+        <div id="cerZoneDisplay" style="display:none;margin-top:6px;font-size:12px;"></div>
+      </div>
+
+      <label for="area">Collector / PV Area A (m&sup2;):</label>
+      <input id="area" type="number" min="0" step="0.01" value="250" />
+
+      <details class="advanced-settings full-row">
+        <summary>Advanced Settings</summary>
+        <div class="advanced-settings-body">
+          <div class="advanced-grid">
+            <label for="tiltAngle">Tilt Angle (deg):</label>
+            <input id="tiltAngle" type="number" step="0.01" value="30" />
+
+            <label for="azimuthAngle">Surface Azimuth Angle (deg):</label>
+            <input id="azimuthAngle" type="number" step="0.01" value="0" />
+
+            <label for="albedo">Ground Albedo (0-1):</label>
+            <input id="albedo" type="number" min="0" max="1" step="0.01" value="0.2" />
+
+            <label for="flowRate">Flow Rate (L/s/m&sup2;):</label>
+            <input id="flowRate" type="number" min="0" step="0.001" value="0.02" />
+
+            <label for="etaPv">PV efficiency &eta; (0&ndash;1):</label>
+            <input id="etaPv" type="number" min="0" max="1" step="0.01" value="0.20" />
+
+            <div class="strike-row">
+              <label for="tin">Inlet temperature Tin (&deg;C):</label>
+              <input id="tin" type="number" step="0.1" value="10" disabled />
+            </div>
+
+            <div class="full-row" style="margin:8px 0 4px;">
+              <b style="font-size:13px;">PVT Thermal Efficiency Model:</b><br/>
+              <label style="display:inline-flex;align-items:center;gap:6px;margin-right:18px;margin-top:6px;cursor:pointer;">
+                <input type="radio" name="thermalModel" id="modelA" value="A" checked />
+                <span style="font-size:13px;"><b>Model A</b> &ndash; Simple linear</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;">
+                <input type="radio" name="thermalModel" id="modelB" value="B" />
+                <span style="font-size:13px;"><b>Model B</b> &ndash; ISO 9806 full model (Eq.12)</span>
+              </label>
+            </div>
+
+            <!-- Model A params -->
+            <div id="modelAParams" class="full-row">
+              <div class="advanced-grid" style="margin:0;">
+                <div class="full-row formula-box">
+                  <span class="formula-main">
+                    &eta;<sub>th</sub> = a<sub>0</sub> + a<sub>1</sub>
+                    &thinsp;(
+                    <span class="math-frac">
+                      <span class="math-frac-top">T<sub>in</sub> &minus; T<sub>a</sub></span>
+                      <span class="math-frac-bottom">G</span>
+                    </span>
+                    ) + a<sub>2</sub>u<sub>wind</sub>
+                  </span>
+                  <span class="formula-sub">T<sub>in</sub> and T<sub>a</sub> in &deg;C, G in W/m&sup2;, and u<sub>wind</sub> in m/s.</span>
+                </div>
+                <label for="pvtA0">PVT a0:</label>
+                <input id="pvtA0" type="number" step="0.000000001" value="0.279952866" />
+                <label for="pvtA1">PVT a1:</label>
+                <input id="pvtA1" type="number" step="0.000000001" value="-10.52839866" />
+                <label for="pvtA2">PVT a2:</label>
+                <input id="pvtA2" type="number" step="0.000000001" value="-0.008135537" />
+              </div>
+            </div>
+
+            <!-- Model B params (ISO 9806 Eq.12) -->
+            <div id="modelBParams" class="full-row" style="display:none;">
+              <div class="formula-box">
+                <span class="formula-main">
+                  Q = A<sub>G</sub>[&eta;<sub>0,hem</sub>G<sub>hem</sub> &minus; a<sub>1</sub>(T<sub>m</sub> &minus; T<sub>a</sub>) &minus; a<sub>2</sub>(T<sub>m</sub> &minus; T<sub>a</sub>)<sup>2</sup> &minus; a<sub>3</sub>u(T<sub>m</sub> &minus; T<sub>a</sub>) + a<sub>4</sub>(E<sub>L</sub> &minus; &sigma;T<sub>a</sub><sup>4</sup>) &minus; a<sub>6</sub>uG<sub>hem</sub> &minus; a<sub>8</sub>(T<sub>m</sub> &minus; T<sub>a</sub>)<sup>4</sup>]
+                </span>
+                <span class="formula-sub">T<sub>m</sub> = (T<sub>in</sub> + T<sub>out</sub>)/2, solved iteratively each hour. Set a<sub>3</sub>, a<sub>4</sub>, a<sub>6</sub>, and a<sub>8</sub> to 0 to ignore those terms.</span>
+              </div>
+              <div class="advanced-grid" style="margin:0;">
+                <label for="isoEta0">&eta;<sub>0,hem</sub> &ndash; peak efficiency:</label>
+                <input id="isoEta0" type="number" step="0.0001" value="0.762" />
+                <label for="isoA1">a1 &ndash; heat loss coeff (W/m&sup2;K):</label>
+                <input id="isoA1" type="number" step="0.0001" value="3.93" />
+                <label for="isoA2">a2 &ndash; temp&sup2; loss coeff (W/m&sup2;K&sup2;):</label>
+                <input id="isoA2" type="number" step="0.00001" value="0.0095" />
+                <label for="isoA3">a3 &ndash; wind&times;temp loss (J/m&sup3;K):</label>
+                <input id="isoA3" type="number" step="0.00001" value="0" />
+                <label for="isoA4">a4 &ndash; sky temp coeff:</label>
+                <input id="isoA4" type="number" step="0.00001" value="0" />
+                <label for="isoA6">a6 &ndash; wind&times;G coeff (s/m):</label>
+                <input id="isoA6" type="number" step="0.00001" value="0" />
+                <label for="isoA8">a8 &ndash; 4th order loss (W/m&sup2;K<sup>4</sup>):</label>
+                <input id="isoA8" type="number" step="0.0000001" value="0" />
+                <label for="isoTout0">Initial T<sub>out</sub> guess (&deg;C):</label>
+                <input id="isoTout0" type="number" step="0.1" value="40" />
+                <label for="isoIterMax">Max iterations (Newton):</label>
+                <input id="isoIterMax" type="number" min="1" max="10" step="1" value="5" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Mains Temperature Display -->
+      <div id="mainsTempDisplay" class="panel full-row" style="margin-top:10px;display:none;">
+        <div><b>Monthly average T_mains (°C):</b></div>
+        <table class="result-table mains-monthly" style="margin-top:6px;pointer-events:none;">
+          <tbody><tr><td colspan="12" style="text-align:center;font-style:italic;font-family:inherit;opacity:0.5;border:none;">not available yet, load TMY</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 2: Industry Demand + Actions -->
+  <div class="panel" style="margin-top:10px;">
+    <div class="grid">
+
+      <div class="step-kicker full-row">Step 2 &middot; Industry demand &amp; economics</div>
+      <div class="full-row" style="margin:0 0 6px;padding-top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <b style="font-size:14px;">Industry Thermal Demand (optional)</b>
+        <button id="btnOpenProcessDiagram" type="button" style="visibility:hidden;padding:6px 10px;font-size:12px;line-height:1.2;">Process Diagram</button>
+      </div>
+
+      <label for="industrySelect"><b>Industry:</b></label>
+      <select id="industrySelect">
+        <option value="">&mdash; None (PVT supply only) &mdash;</option>
+        <option value="dairy_farm">Dairy Farm</option>
+        <option value="brewery">Brewery</option>
+        <option value="aquatic_centres">Aquatic Centres</option>
+        <option value="hotel">Hotel</option>
+        <option value="commercial_laundry">Commercial Laundry</option>
+      </select>
+
+      <div id="profilePanel" class="full-row" style="display:none;">
+        <div class="grid" style="margin:0;gap:10px 16px;align-items:center;">
+          <label for="profileType"><b>Operating profile:</b></label>
+          <select id="profileType" style="margin:0;">
+            <option value="continuous">Continuously active (24/7)</option>
+            <option value="mon_fri">5 days/week (Mon-Fri)</option>
+          </select>
+          <div id="profileTypeNote" class="note full-row" style="display:none;margin:0;"></div>
+        </div>
+      </div>
+
+      <label for="throughputInput" id="throughputLabel" style="display:none;">Throughput (per year):</label>
+      <input id="throughputInput" type="number" min="0" step="1000" value="5000000" style="display:none;" />
+
+      <div id="hotelInputsPanel" class="full-row" style="display:none;">
+        <div style="margin:8px 0;padding:10px;background:#f8f8f8;border-radius:6px;border:1px solid #ddd;">
+          <div class="grid">
+            <label for="hotelRoomsInput"><b>Total available rooms:</b></label>
+            <input id="hotelRoomsInput" type="number" min="1" step="1" value="120" />
+
+            <label for="hotelOccupancyInput"><b>Occupancy rate (%):</b></label>
+            <input id="hotelOccupancyInput" type="number" min="0" max="100" step="0.1" value="70" />
+
+            <label for="tankVolume"><b>Thermal storage tank volume (L):</b></label>
+            <input id="tankVolume" type="number" min="0" step="100" value="5000" />
+          </div>
+        </div>
+      </div>
+
+      <div id="aquaticInputsPanel" class="full-row" style="display:none;">
+        <div style="margin:8px 0;padding:10px;background:#f4fafc;border-radius:6px;border:1px solid #cfe0ea;">
+          <div class="grid">
+            <label for="aquaticIndoorArea" class="aquatic-process-label">
+              <input class="aquatic-process-toggle" type="checkbox" value="indoor_pool" checked onchange="syncAquaticProcessInputs();" />
+              <b>Indoor pool surface area (m&sup2;):</b>
+            </label>
+            <input id="aquaticIndoorArea" type="number" min="0" step="0.1" value="350" />
+
+            <label for="aquaticOutdoorArea" class="aquatic-process-label">
+              <input class="aquatic-process-toggle" type="checkbox" value="outdoor_pool" checked onchange="syncAquaticProcessInputs();" />
+              <b>Outdoor pool surface area (m&sup2;):</b>
+            </label>
+            <input id="aquaticOutdoorArea" type="number" min="0" step="0.1" value="250" />
+
+            <label for="aquaticKidsArea" class="aquatic-process-label">
+              <input class="aquatic-process-toggle" type="checkbox" value="kids_pool" checked onchange="syncAquaticProcessInputs();" />
+              <b>Kids pool surface area (m&sup2;):</b>
+            </label>
+            <input id="aquaticKidsArea" type="number" min="0" step="0.1" value="90" />
+
+            <label for="aquaticSaunaArea" class="aquatic-process-label">
+              <input class="aquatic-process-toggle" type="checkbox" value="sauna" checked onchange="syncAquaticProcessInputs();" />
+              <b>Sauna / spa heated-water area (m&sup2;):</b>
+            </label>
+            <input id="aquaticSaunaArea" type="number" min="0" step="0.1" value="25" />
+
+            <label for="aquaticPoolCover"><b>Pool cover used off-hours:</b></label>
+            <label style="display:inline-flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap;">
+              <input id="aquaticPoolCover" type="checkbox" checked style="width:auto;margin:0;" />
+              Use cover when pools are closed
+            </label>
+
+            <div class="full-row note" style="margin-top:2px;">
+              Area-based aquatic demand uses hourly evaporation, makeup-water heating, and sensible heat loss from the loaded TMY weather.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="processPanel" class="full-row" style="display:none;">
+        <div style="margin:8px 0;padding:10px;background:#f0f4f8;border-radius:6px;border:1px solid #cce;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:6px;">Select thermal processes:</div>
+          <div id="processChecks"></div>
+        </div>
+      </div>
+
+      <details class="advanced-settings full-row">
+        <summary>Advanced Settings</summary>
+        <div class="advanced-settings-body">
+          <div class="advanced-grid">
+            <div class="note full-row advanced-usage-note">
+              <span>These values affect savings, payback, NPV, and levelised cost. They do not change solar energy production.</span>
+              <span class="setting-chip annual">Annual PVT</span>
+              <span class="setting-chip industry">Industry</span>
+              <span class="setting-chip disabled">Not used</span>
+            </div>
+
+            <label for="electricityPrice" class="setting-label"><b>Local Electricity Price (AUD/kWh):</b><span class="setting-tags"><span class="setting-chip annual">Annual PVT</span><span class="setting-chip industry">Industry</span></span></label>
+            <input id="electricityPrice" type="number" min="0" step="0.01" value="0.27" />
+
+            <label for="feedInTariffInput" class="setting-label">Feed-in Electricity Price (AUD/kWh):<span class="setting-tags"><span class="setting-chip industry">Industry</span></span></label>
+            <input id="feedInTariffInput" type="number" min="0" step="0.01" value="0.06" />
+
+            <label for="gasPriceInput" class="setting-label"><b>Natural Gas Price (AUD/MJ):</b><span class="setting-tags"><span class="setting-chip industry">Industry</span></span></label>
+            <input id="gasPriceInput" type="number" min="0" step="0.001" value="0.020" />
+
+            <label for="boilerEffInput" class="setting-label"><b>Boiler Efficiency &eta; (0&ndash;1):</b><span class="setting-tags"><span class="setting-chip industry">Industry</span></span></label>
+            <input id="boilerEffInput" type="number" min="0.5" max="1" step="0.01" value="0.85" />
+
+            <label for="gridEmissionFactor" class="setting-label">Grid emission factor (kg CO&#8322;-e/kWh):<span class="setting-tags"><span class="setting-chip industry">Industry</span></span></label>
+            <select id="gridEmissionFactor">
+              <option value="0.62" selected>National average &mdash; 0.62</option>
+              <option value="0.64">NSW &amp; ACT &mdash; 0.64</option>
+              <option value="0.78">VIC &mdash; 0.78</option>
+              <option value="0.67">QLD &mdash; 0.67</option>
+              <option value="0.22">SA &mdash; 0.22</option>
+              <option value="0.50">WA (SWIS) &mdash; 0.50</option>
+              <option value="0.20">TAS &mdash; 0.20</option>
+              <option value="0.56">NT (DKIS) &mdash; 0.56</option>
+            </select>
+
+            <label for="capexInput" class="setting-label"><b>CAPEX &ndash; Unit Cost (AUD/m&sup2;):</b><span class="setting-tags"><span class="setting-chip annual">Annual PVT</span></span></label>
+            <input id="capexInput" type="number" min="0" step="10" value="800" />
+
+            <div class="installed-cost-box full-row">
+              <div class="installed-cost-head">
+                <b>Installed cost auto-fill</b>
+                <span class="setting-chip annual">Annual PVT</span>
+              </div>
+              <div class="installed-cost-grid">
+                <label for="pvInstalledCostPerW">PV installed cost (AUD/W):</label>
+                <input id="pvInstalledCostPerW" type="number" min="0" step="0.01" value="1.20" />
+
+                <label for="thermalInstalledCostPerW">Thermal / PVT installed cost (AUD/W):</label>
+                <input id="thermalInstalledCostPerW" type="number" min="0" step="0.01" value="1.50" />
+
+                <label for="calculatedCapexPerM2">Calculated CAPEX (AUD/m&sup2;):</label>
+                <input id="calculatedCapexPerM2" type="text" value="" readonly />
+
+                <label for="installedCostPerFt2">Installed cost (AUD/ft&sup2;):</label>
+                <input id="installedCostPerFt2" type="text" value="" readonly />
+
+                <label for="autoCapexFromWatts" class="auto-cost-toggle">
+                  <input id="autoCapexFromWatts" type="checkbox" checked />
+                  Auto-fill CAPEX unit cost from these values
+                </label>
+              </div>
+              <div class="note">
+                Auto-converts installed $/W into $/m&sup2; and $/ft&sup2;.
+              </div>
+            </div>
+
+            <label for="opexRateInput" class="setting-label">OPEX Rate (% of CAPEX / yr):<span class="setting-tags"><span class="setting-chip annual">Annual PVT</span></span></label>
+            <input id="opexRateInput" type="number" min="0" max="20" step="0.1" value="1.5" />
+
+            <label for="systemLifeInput" class="setting-label">System Lifetime N (years):<span class="setting-tags"><span class="setting-chip annual">Annual PVT</span></span></label>
+            <input id="systemLifeInput" type="number" min="1" max="50" step="1" value="25" />
+
+            <label for="discountRateInput" class="setting-label">Discount Rate r (%):<span class="setting-tags"><span class="setting-chip annual">Annual PVT</span></span></label>
+            <input id="discountRateInput" type="number" min="0" max="30" step="0.1" value="6" />
+
+            <div class="note full-row" style="margin-top:6px;">
+              Defaults are editable estimates. Replace them with site contract rates where available.
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div class="btns full-row">
+        <button id="btnAnnual" type="button">Calculate Annual PV + Thermal</button>
+        <span id="calcHint" style="display:none;margin-left:10px;font-size:12px;color:#666;line-height:2.5;">Calculating 8,760 hourly timesteps&hellip;</span>
+        <a id="downloadLink" href="#" target="_blank" rel="noopener">Download hourly details CSV</a>
+        <button id="btnGeneratePdf" type="button" class="secondary-action" disabled>Generate PDF report</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Base PVT Results + Supply Charts -->
+  <div id="output" class="panel">
+    <div id="annualOutput">Ready &mdash; enter an address above, click &ldquo;Geocode &amp; Load TMY&rdquo;, then &ldquo;Calculate Annual PV + Thermal&rdquo;.</div>
+
+    <!-- Supply Charts (Chart.js) -->
+    <div id="supplyChartsPanel" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #d6dfea;">
+      <h4>Monthly &amp; Daily Supply Charts</h4>
+      <div class="display-controls">
+        <label><input id="showMonthlySupply" type="checkbox" /> Monthly Supply</label>
+        <label><input id="showDailyDetail" type="checkbox" /> Daily Detail</label>
+        <label><input id="showOutletTemperature" type="checkbox" /> Outlet Temperature</label>
+      </div>
+      <div id="supplyChartsEmpty" class="note" style="margin-top:10px;">Select a section to display its chart and table.</div>
+
+      <div id="monthlySupplyBlock" class="results-block" style="display:none;">
+        <h5>Monthly Supply</h5>
+        <div class="chart-container"><canvas id="monthlyChart"></canvas></div>
+        <div id="monthlyDataTable" class="data-table-container"></div>
+      </div>
+
+      <div id="dailyDetailBlock" class="results-block" style="display:none;">
+        <h5>Daily Detail</h5>
+        <div class="selector-row">
+          <label for="monthSelector">Select month for daily details:</label>
+          <select id="monthSelector" style="padding:8px;margin-left:8px;">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
+        <div class="chart-container"><canvas id="dailyChart"></canvas></div>
+        <div id="dailyDataTable" class="data-table-container"></div>
+      </div>
+
+      <div id="outletTemperatureBlock" class="results-block" style="display:none;">
+        <h5>Outlet Temperature</h5>
+        <div class="chart-container"><canvas id="temperatureChart"></canvas></div>
+        <div id="temperatureDataTable" class="data-table-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Industry Output -->
+  <div id="industryOutput" class="panel" style="display:none;margin-top:10px;"></div>
+
+  <p class="footer-note">
+    Weather: <a href="https://re.jrc.ec.europa.eu/pvg_tools/en/" target="_blank" rel="noopener">PVGIS</a> typical meteorological year &middot;
+    Mains water temperature: BC-Aus &mdash; <a href="https://www.osti.gov/biblio/981988" target="_blank" rel="noopener">Burch &amp; Christensen (NREL)</a> refitted to AS/NZS 4234 Australian climate zones
+  </p>
+
+  <!-- Modals -->
+  <div id="mainsChartModal" class="chart-modal" aria-hidden="true">
+    <div class="chart-card" role="dialog" aria-modal="true" aria-labelledby="mainsChartTitle">
+      <div class="chart-head">
+        <b id="mainsChartTitle">Local mains temperature profile</b>
+        <button id="btnCloseMainsChart" type="button" class="chart-close">Close</button>
+      </div>
+      <div id="mainsChartBody"></div>
+    </div>
+  </div>
+  <div id="processDiagramModal" class="chart-modal" aria-hidden="true">
+    <div class="chart-card" role="dialog" aria-modal="true" aria-labelledby="processDiagramTitle">
+      <div class="chart-head">
+        <b id="processDiagramTitle">Process Diagram</b>
+        <button id="btnCloseProcessDiagram" type="button" class="chart-close">Close</button>
+      </div>
+      <div id="processDiagramBody"></div>
+    </div>
+  </div>
+  <div id="processUsageModal" class="chart-modal" aria-hidden="true">
+    <div class="chart-card" role="dialog" aria-modal="true" aria-labelledby="processUsageTitle">
+      <div class="chart-head">
+        <b id="processUsageTitle">Process demand profile</b>
+        <button id="btnCloseProcessUsage" type="button" class="chart-close">Close</button>
+      </div>
+      <div id="processUsageBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

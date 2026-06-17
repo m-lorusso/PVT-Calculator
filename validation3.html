@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Validation 3 — BC-Aus vs EnergyPlus 0.5 m ground temps</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:18px;color:#111;background:#fff;}
+    .wrap{max-width:980px;}
+    h1{font-size:20px;margin:0 0 10px;}
+    h2{font-size:18px;margin:0 0 10px;}
+    h3{font-size:14px;margin:0 0 8px;}
+    .panel{padding:12px;border:1px solid #ddd;background:#fafafa;border-radius:8px;margin-top:10px;}
+    .hero{padding:12px;}
+    .eyebrow{display:none;}
+    .hero-copy,.step-copy,.summary-note,.provenance,.card-note,.legend-note,.status{font-size:12px;color:#444;line-height:1.45;}
+    .btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0;}
+    button{padding:10px 12px;cursor:pointer;border:1px solid #bbb;background:#fff;color:#111;border-radius:0;font:inherit;font-weight:normal;box-shadow:none;}
+    button:disabled{cursor:not-allowed;opacity:0.7;}
+    .loading{color:#0066cc;}
+    .ok{color:#0b6b2d;}
+    .warn{color:#9a6700;}
+    .err{color:#b00020;}
+    .lede{font-size:12px;color:#444;line-height:1.45;margin-top:6px;}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .card{padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;}
+    .card-label{font-size:12px;color:#444;margin-bottom:6px;font-weight:bold;}
+    .card-value{font-size:22px;margin-bottom:6px;}
+    .how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .how-step{padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;}
+    .step-num{display:inline-block;margin-bottom:8px;font-size:12px;font-weight:bold;color:#444;}
+    .result-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px;background:#fff;}
+    .result-table th,.result-table td{padding:6px 10px;text-align:left;border-bottom:1px solid #ddd;vertical-align:top;}
+    .result-table th{background:#f5f5f5;font-weight:600;}
+    .result-table td.num{text-align:right;font-family:monospace;}
+    .zone-button{padding:0;border:0;background:none;color:#1565c0;font:inherit;font-weight:normal;cursor:pointer;box-shadow:none;text-align:left;text-decoration:underline;}
+    .zone-button.selected{font-weight:bold;color:#0b4d91;}
+    .verdict-pill{font-size:13px;font-weight:normal;background:none;padding:0;border-radius:0;}
+    .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+    .detail-shell{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;}
+    .detail-card,.chart-card{padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;}
+    .detail-meta{display:grid;gap:8px;margin-top:10px;font-size:12px;color:#444;line-height:1.45;}
+    .subpanel{padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;}
+    .chart-container{position:relative;height:340px;margin:8px 0 2px;}
+    .provenance p{margin:0 0 10px 0;}
+    .problem-box{padding:12px;border:1px solid #e3b4b4;background:#fff1f1;border-radius:8px;}
+    .problem-title{color:#b00020;font-weight:700;margin-bottom:6px;}
+    .findings-box{padding:12px;border:1px solid #e2d5a8;background:#fff9e8;border-radius:8px;}
+    .findings-title{color:#8a6a00;font-weight:700;margin-bottom:6px;}
+    .note-box{padding:14px;border:1px solid #cfcfcf;background:#fff;border-radius:8px;}
+    .note-title{font-weight:700;margin-bottom:8px;}
+    .hidden{display:none;}
+    a{color:#1565c0;}
+    code{font-family:Consolas,monospace;font-size:12px;}
+    @media (max-width:900px){
+      .cards,.how-grid,.compare-grid,.detail-shell{grid-template-columns:1fr;}
+      .chart-container{height:300px;}
+    }
+  </style>
+  <script src="assets/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel hero">
+    <div class="eyebrow">Validation Page</div>
+    <div style="margin:0 0 10px;"><a href="index.html" style="font-size:13px;color:#1a5f9a;text-decoration:none;font-weight:600;">&larr; Back to calculator</a></div><h1>Validation 3: BC-Aus vs EnergyPlus 0.5 m ground temperatures</h1>
+    <div class="hero-copy">
+      Compares the calculator's Burch-Christensen mains water model with EnergyPlus 0.5 m ground temperature monthly reference values.
+    </div>
+    <div class="btn-row">
+      <button id="btnRunValidation" type="button">Run Validation</button>
+      <div id="statusText" class="status">Ready. Start the local backend at <code>http://localhost:8000/tmy</code> and then run the validation.</div>
+    </div>
+    <div class="lede">
+      Reference = EnergyPlus 0.5 m ground temperatures.<br>
+      Model = TMY-based calculation.<br>
+      Click a zone to view its chart.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>How It Works</h2>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="step-num">1</div>
+        <h3>Reference Data</h3>
+        <div class="step-copy">
+          Monthly 0.5 m ground temperatures are hardcoded from EnergyPlus TMYx <code>.stat</code> files.
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">2</div>
+        <h3>TMY Input</h3>
+        <div class="step-copy">
+          The page fetches TMY weather from the local <code>/tmy</code> endpoint for each zone.
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">3</div>
+        <h3>Model</h3>
+        <div class="step-copy">
+          It runs the same Burch-Christensen calculation as <code>index.html</code> and compares month by month.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="overviewPanel" class="panel hidden">
+    <h2>Summary</h2>
+    <div id="overviewCards" class="cards"></div>
+  </div>
+
+  <div id="summaryPanel" class="panel hidden">
+    <h2>Zone Summary</h2>
+    <div class="compare-grid">
+      <div class="subpanel">
+        <h3>Model +6</h3>
+        <div class="summary-note">Click a zone name for its chart.</div>
+        <div id="summaryTableWrap6"></div>
+      </div>
+      <div class="subpanel">
+        <h3>Model +0</h3>
+        <div class="summary-note">Click a zone name for its chart.</div>
+        <div id="summaryTableWrap0"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="detailPanel" class="panel hidden">
+    <h2>Zone Detail</h2>
+    <div class="compare-grid">
+      <div class="detail-shell">
+        <div id="detailMeta6" class="detail-card"></div>
+        <div class="chart-card">
+          <div class="chart-container">
+            <canvas id="detailChart6"></canvas>
+          </div>
+          <div class="legend-note">Solid circles show the EnergyPlus reference temperatures. Dashed triangles show the +6 model prediction.</div>
+        </div>
+      </div>
+      <div class="detail-shell">
+        <div id="detailMeta0" class="detail-card"></div>
+        <div class="chart-card">
+          <div class="chart-container">
+            <canvas id="detailChart0"></canvas>
+          </div>
+          <div class="legend-note">Solid circles show the EnergyPlus reference temperatures. Dashed triangles show the +0 model prediction.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Source</h2>
+    <div class="provenance">
+      <p>
+        Reference data comes from EnergyPlus TMYx calculated undisturbed ground temperatures at 0.5 m depth for:
+        <code>AUS_QLD_Rockhampton.AP.943740_TMYx.stat</code>, <code>AUS_NT_Alice.Springs.AP.943260_TMYx.stat</code>,
+        <code>AUS_NSW_Mascot.AP-Sydney.Intl.AP.947670_TMYx.stat</code>, <code>AUS_VIC_Tullamarine-Melbourne.Intl.AP.948660_TMYx.stat</code>,
+        and <code>AUS_ACT_Canberra.Intl.AP.949260_TMYx.stat</code>.
+      </p>
+      <p style="margin-top:10px;">
+        These are calculated ground temperatures, not one measured calendar year.
+      </p>
+      <p style="margin-top:10px;">
+        Model weather comes from PVGIS TMY via the local backend. A TMY is a representative year, not one specific year.
+      </p>
+      <p style="margin-top:10px;">
+        Reference data: EnergyPlus TMYx calculated undisturbed ground temperatures at 0.5m depth, sourced from climate.onebuilding.org. Ground temperatures calculated using standard soil diffusivity of 2.3225760E-03 m²/day.
+      </p>
+      <p style="margin-top:10px;">
+        Source link:
+        <a href="https://climate.onebuilding.org/WMO_Region_5_Southwest_Pacific/AUS_Australia/index.html" target="_blank" rel="noopener">
+          https://climate.onebuilding.org/WMO_Region_5_Southwest_Pacific/AUS_Australia/index.html
+        </a>
+      </p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="findings-box">
+      <div class="findings-title">Findings</div>
+      <div class="provenance">
+        The model gets the seasonal shape right, but it stays too warm and does not drop enough in winter. This suggests the Burch-Christensen settings were tuned for US conditions and are too warm for Australian sites.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="note-box">
+      <div class="note-title">1. Elevation</div>
+      <div class="provenance">
+        Canberra airport is at 575 m above sea level, much higher than Sydney (6 m), Rockhampton (10 m), and Melbourne (132 m). Higher elevation means colder ground temperatures, but the model only uses air temperature and does not account for altitude.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const GROUND_TEMP_05M = {
+  zone1_rockhampton: {
+    lat: -23.375, lon: 150.478,
+    label: "Rockhampton AP (WMO 943740)",
+    source: "AUS_QLD_Rockhampton.AP.943740_TMYx.stat",
+    monthly: [26.8, 25.9, 24.2, 22.6, 19.6, 18.1, 17.7, 18.5, 20.3, 22.6, 24.9, 26.4]
+  },
+  zone2_alicesprings: {
+    lat: -23.795, lon: 133.889,
+    label: "Alice Springs AP (WMO 943260)",
+    source: "AUS_NT_Alice.Springs.AP.943260_TMYx.stat",
+    monthly: [29.5, 28.0, 25.0, 22.3, 17.1, 14.4, 13.7, 15.1, 18.4, 22.3, 26.2, 28.8]
+  },
+  zone3_sydney: {
+    lat: -33.946, lon: 151.173,
+    label: "Sydney Intl AP (WMO 947670)",
+    source: "AUS_NSW_Mascot.AP-Sydney.Intl.AP.947670_TMYx.stat",
+    monthly: [22.2, 22.5, 21.7, 20.6, 17.6, 15.4, 13.9, 13.5, 14.4, 16.2, 18.5, 20.7]
+  },
+  zone4_melbourne: {
+    lat: -37.666, lon: 144.832,
+    label: "Melbourne Intl AP (WMO 948660)",
+    source: "AUS_VIC_Tullamarine-Melbourne.Intl.AP.948660_TMYx.stat",
+    monthly: [18.0, 16.0, 13.7, 11.9, 9.6, 9.2, 10.0, 12.0, 14.6, 16.9, 18.6, 19.0]
+  },
+  zone5_canberra: {
+    lat: -35.309, lon: 149.200,
+    label: "Canberra Intl AP (WMO 949260)",
+    source: "AUS_ACT_Canberra.Intl.AP.949260_TMYx.stat",
+    monthly: [18.1, 15.3, 12.2, 9.8, 6.7, 6.1, 7.3, 10.0, 13.5, 16.6, 18.9, 19.4]
+  }
+};
+
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTH_DAYS  = [31,28,31,30,31,30,31,31,30,31,30,31];
+const TMY_TIMEOUT_MS = 45000;
+const ZONE_COLORS = ["#1f78d1","#d14343","#3c8e4e","#7a42c8","#e57b15"];
+
+let detailChartInstance6 = null;
+let detailChartInstance0 = null;
+let validationResults = [];
+let selectedZoneKey = null;
+
+function isFiniteNumber(x){ return typeof x === "number" && Number.isFinite(x); }
+function cToF(c){ return (c * 9 / 5) + 32; }
+function fToC(f){ return (f - 32) * 5 / 9; }
+
+function monthFromDayN(dayN){
+  let s = 0;
+  for (let m = 0; m < MONTH_DAYS.length; m++){
+    s += MONTH_DAYS[m];
+    if (dayN <= s) return m + 1;
+  }
+  return 12;
+}
+
+function fetchWithTimeout(url, options={}, timeoutMs=10000){
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timerId));
+}
+
+function normalizeWeatherRecords(raw){
+  let arr;
+  if (Array.isArray(raw)) arr = raw;
+  else if (raw && typeof raw === "object") arr = Object.values(raw);
+  else throw new Error("Unsupported weather data structure.");
+
+  const out = [];
+  for (const r of arr){
+    if (!r || typeof r !== "object") continue;
+    const dayN  = +(r.dayN ?? r.dayn ?? r.DayN ?? r.DAYN);
+    let   hourN = +(r.hourN ?? r.hourn ?? r.HourN ?? r.HOURN);
+    const dni   = +(r.DNI ?? r.dni ?? r.Dni);
+    const dhi   = +(r.DHI ?? r.dhi ?? r.Dhi);
+    const ta    = +(r.Ta  ?? r.ta  ?? r.TA);
+    const vwind = +(r.Vwind ?? r.vwind ?? r.VWIND ?? r.VWind);
+    if (Number.isFinite(hourN) && hourN >= 1 && hourN <= 24) hourN = hourN - 1;
+    out.push({ dayN, hourN, dni, dhi, ta, vwind });
+  }
+  return out;
+}
+
+function normalizeTMYRecords(raw){
+  const arr = Array.isArray(raw?.records) ? raw.records : (Array.isArray(raw) ? raw : null);
+  if (!arr) throw new Error("TMY JSON missing records[]");
+  return normalizeWeatherRecords(arr);
+}
+
+function calculateLocalTMains(met, latitude, offsetF=6){
+  const validTa = met.map(r => r.ta).filter(isFiniteNumber);
+  if (!validTa.length) throw new Error("Cannot calculate T_mains: missing ambient temperature data.");
+
+  const annualAvgTaC = validTa.reduce((a,b)=>a+b,0) / validTa.length;
+  const monthBuckets = Array.from({length:12}, () => []);
+  for (const r of met){
+    if (!isFiniteNumber(r.dayN) || !isFiniteNumber(r.ta)) continue;
+    monthBuckets[monthFromDayN(r.dayN) - 1].push(r.ta);
+  }
+
+  const monthAvgC = monthBuckets.map(arr => arr.length ? (arr.reduce((a,b)=>a+b,0) / arr.length) : annualAvgTaC);
+  const maxMonthAvgC = Math.max(...monthAvgC);
+  const minMonthAvgC = Math.min(...monthAvgC);
+  const deltaMonthC = maxMonthAvgC - minMonthAvgC;
+
+  const annualAvgTaF = cToF(annualAvgTaC);
+  const deltaMonthF = deltaMonthC * 9 / 5;
+  const ratio = 0.4 + 0.01 * (annualAvgTaF - 44);
+  const lag = 35 - (annualAvgTaF - 44);
+  const lat = Number.isFinite(latitude) ? latitude : 0;
+
+  const byMonthBuckets = Array.from({length:12}, () => []);
+  let sumC = 0;
+
+  for (let day = 1; day <= 365; day++){
+    const modelDay = lat >= 0 ? day : (((day + 182 - 1) % 365) + 1);
+    const angleDeg = 0.986 * (modelDay - 15 - lag) - 90;
+    const angleRad = angleDeg * Math.PI / 180;
+    const tMainsF = (annualAvgTaF + offsetF) + ratio * (deltaMonthF / 2) * Math.sin(angleRad);
+    const tMainsC = fToC(tMainsF);
+    byMonthBuckets[monthFromDayN(day) - 1].push(tMainsC);
+    sumC += tMainsC;
+  }
+
+  const byMonth = byMonthBuckets.map((arr, i) => ({
+    month: i + 1,
+    avgC: arr.length ? (arr.reduce((a,b)=>a+b,0) / arr.length) : null
+  }));
+
+  return { annualAvgC: sumC / 365, byMonth };
+}
+
+function mean(values){
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function getVerdict(mae){
+  if (mae < 2) return { text: "Good agreement", className: "ok" };
+  if (mae <= 3) return { text: "Acceptable", className: "warn" };
+  return { text: "Poor", className: "err" };
+}
+
+function setStatus(message, cssClass=""){
+  const el = document.getElementById("statusText");
+  el.className = `status ${cssClass}`.trim();
+  el.innerHTML = message;
+}
+
+function findLargestGap(errors){
+  const absErrors = errors.map(Math.abs);
+  const maxAbsError = Math.max(...absErrors);
+  const maxMonthIndex = absErrors.indexOf(maxAbsError);
+  return { maxAbsError, maxMonthIndex };
+}
+
+async function fetchZoneValidation(zone){
+  const url = `http://localhost:8000/tmy?lat=${encodeURIComponent(zone.lat)}&lon=${encodeURIComponent(zone.lon)}`;
+  const resp = await fetchWithTimeout(url, { headers:{"Accept":"application/json"} }, TMY_TIMEOUT_MS);
+  if (!resp.ok){
+    throw new Error(`TMY fetch failed for ${zone.label}: HTTP ${resp.status}`);
+  }
+
+  const raw = await resp.json();
+  const met = normalizeTMYRecords(raw);
+  const mains6 = calculateLocalTMains(met, zone.lat, 6);
+  const mains0 = calculateLocalTMains(met, zone.lat, 0);
+  const modelMonthly6 = mains6.byMonth.map(row => row.avgC);
+  const modelMonthly0 = mains0.byMonth.map(row => row.avgC);
+  return { modelMonthly6, modelMonthly0, mains6, mains0, meta: raw.meta || null };
+}
+
+function calculateStats(zone, modelMonthly){
+  const errors = modelMonthly.map((value, idx) => value - zone.monthly[idx]);
+  const mae = mean(errors.map(value => Math.abs(value)));
+  const largestGap = findLargestGap(errors);
+  const modelAnnual = mean(modelMonthly);
+  const referenceAnnual = mean(zone.monthly);
+
+  return {
+    errors,
+    mae,
+    maxAbsError: largestGap.maxAbsError,
+    maxMonthIndex: largestGap.maxMonthIndex,
+    modelAnnual,
+    referenceAnnual,
+    verdict: getVerdict(mae)
+  };
+}
+
+function resetView(){
+  if (detailChartInstance6) detailChartInstance6.destroy();
+  if (detailChartInstance0) detailChartInstance0.destroy();
+  detailChartInstance6 = null;
+  detailChartInstance0 = null;
+  validationResults = [];
+  selectedZoneKey = null;
+  document.getElementById("overviewPanel").classList.add("hidden");
+  document.getElementById("summaryPanel").classList.add("hidden");
+  document.getElementById("detailPanel").classList.add("hidden");
+  document.getElementById("overviewCards").innerHTML = "";
+  document.getElementById("summaryTableWrap6").innerHTML = "";
+  document.getElementById("summaryTableWrap0").innerHTML = "";
+  document.getElementById("detailMeta6").innerHTML = "";
+  document.getElementById("detailMeta0").innerHTML = "";
+}
+
+function showResults(){
+  document.getElementById("overviewPanel").classList.remove("hidden");
+  document.getElementById("summaryPanel").classList.remove("hidden");
+  document.getElementById("detailPanel").classList.remove("hidden");
+}
+
+function getResultByKey(zoneKey){
+  return validationResults.find(result => result.zoneKey === zoneKey) || null;
+}
+
+function renderOverviewCards(){
+  const avgMae6 = mean(validationResults.map(result => result.stats6.mae));
+  const avgMae0 = mean(validationResults.map(result => result.stats0.mae));
+
+  document.getElementById("overviewCards").innerHTML = `
+    <div class="card">
+      <div class="card-label">Average MAE (+6)</div>
+      <div class="card-value">${avgMae6.toFixed(2)}&deg;C</div>
+      <div class="card-note">Across 5 zones.</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Average MAE (+0)</div>
+      <div class="card-value">${avgMae0.toFixed(2)}&deg;C</div>
+      <div class="card-note">Across 5 zones.</div>
+    </div>
+  `;
+}
+
+function buildSummaryTable(modelKey, statsKey){
+  let html = `
+    <table class="result-table">
+      <tr>
+        <th>Zone</th>
+        <th style="text-align:right;">MAE</th>
+        <th style="text-align:right;">Largest Gap</th>
+        <th style="text-align:right;">Annual Avg Model</th>
+        <th style="text-align:right;">Annual Avg Reference</th>
+        <th>Verdict</th>
+      </tr>`;
+
+  validationResults.forEach(result => {
+    const stats = result[statsKey];
+    html += `
+      <tr>
+        <td>
+          <button type="button" class="zone-button${selectedZoneKey === result.zoneKey ? " selected" : ""}" data-zone-key="${result.zoneKey}">
+            ${result.zone.label}
+          </button>
+        </td>
+        <td class="num">${stats.mae.toFixed(2)}</td>
+        <td class="num">${stats.maxAbsError.toFixed(2)} (${MONTH_NAMES[stats.maxMonthIndex]})</td>
+        <td class="num">${stats.modelAnnual.toFixed(2)}</td>
+        <td class="num">${stats.referenceAnnual.toFixed(2)}</td>
+        <td><span class="verdict-pill ${stats.verdict.className}">${stats.verdict.text}</span></td>
+      </tr>`;
+  });
+
+  html += "</table>";
+  return html;
+}
+
+function renderSummaryTables(){
+  document.getElementById("summaryTableWrap6").innerHTML = buildSummaryTable("modelMonthly6", "stats6");
+  document.getElementById("summaryTableWrap0").innerHTML = buildSummaryTable("modelMonthly0", "stats0");
+}
+
+function renderDetail(zoneKey){
+  const result = getResultByKey(zoneKey);
+  if (!result) return;
+
+  selectedZoneKey = zoneKey;
+  renderSummaryTables();
+
+  document.getElementById("detailMeta6").innerHTML = `
+    <h3>${result.zone.label} (+6)</h3>
+    <div style="color:#444;font-size:13px;line-height:1.45;">
+      EnergyPlus reference vs the +6 model for this zone.
+    </div>
+    <div class="detail-meta">
+      <div><b>Latitude / Longitude:</b><br>${result.zone.lat.toFixed(3)}, ${result.zone.lon.toFixed(3)}</div>
+      <div><b>Reference file:</b><br><code>${result.zone.source}</code></div>
+      <div><b>Reference depth:</b><br>0.5 m ground temperature</div>
+      <div><b>Largest monthly gap (+6):</b><br>${result.stats6.maxAbsError.toFixed(2)}&deg;C in ${MONTH_NAMES[result.stats6.maxMonthIndex]}</div>
+      <div><b>Annual average:</b><br>Model ${result.stats6.modelAnnual.toFixed(2)}&deg;C<br>Reference ${result.stats6.referenceAnnual.toFixed(2)}&deg;C</div>
+      <div><b>Year note:</b><br>Not one single year. Reference is a TMYx-based calculated ground profile; model uses a TMY.</div>
+    </div>
+  `;
+
+  document.getElementById("detailMeta0").innerHTML = `
+    <h3>${result.zone.label} (+0)</h3>
+    <div style="color:#444;font-size:13px;line-height:1.45;">
+      EnergyPlus reference vs the +0 model for this zone.
+    </div>
+    <div class="detail-meta">
+      <div><b>Latitude / Longitude:</b><br>${result.zone.lat.toFixed(3)}, ${result.zone.lon.toFixed(3)}</div>
+      <div><b>Reference file:</b><br><code>${result.zone.source}</code></div>
+      <div><b>Reference depth:</b><br>0.5 m ground temperature</div>
+      <div><b>Largest monthly gap (+0):</b><br>${result.stats0.maxAbsError.toFixed(2)}&deg;C in ${MONTH_NAMES[result.stats0.maxMonthIndex]}</div>
+      <div><b>Annual average:</b><br>Model ${result.stats0.modelAnnual.toFixed(2)}&deg;C<br>Reference ${result.stats0.referenceAnnual.toFixed(2)}&deg;C</div>
+      <div><b>Year note:</b><br>Not one single year. Reference is a TMYx-based calculated ground profile; model uses a TMY.</div>
+    </div>
+  `;
+
+  const color = ZONE_COLORS[validationResults.findIndex(item => item.zoneKey === zoneKey) % ZONE_COLORS.length];
+
+  if (detailChartInstance6) detailChartInstance6.destroy();
+  const ctx6 = document.getElementById("detailChart6").getContext("2d");
+  detailChartInstance6 = new Chart(ctx6, {
+    type: "line",
+    data: {
+      labels: MONTH_NAMES,
+      datasets: [
+        {
+          label: "EnergyPlus reference",
+          data: result.zone.monthly,
+          borderColor: color,
+          backgroundColor: color,
+          pointStyle: "circle",
+          pointRadius: 4,
+          borderWidth: 2.5,
+          tension: 0.22
+        },
+        {
+          label: "Model +6",
+          data: result.modelMonthly6,
+          borderColor: "#1565c0",
+          backgroundColor: "#1565c0",
+          pointStyle: "triangle",
+          pointRadius: 4,
+          borderWidth: 2.5,
+          borderDash: [7,5],
+          tension: 0.22
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      scales: {
+        y: {
+          title: { display: true, text: "Temperature (degC)" }
+        }
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `${result.zone.label}: +6 model vs reference`
+        }
+      }
+    }
+  });
+
+  if (detailChartInstance0) detailChartInstance0.destroy();
+  const ctx0 = document.getElementById("detailChart0").getContext("2d");
+  detailChartInstance0 = new Chart(ctx0, {
+    type: "line",
+    data: {
+      labels: MONTH_NAMES,
+      datasets: [
+        {
+          label: "EnergyPlus reference",
+          data: result.zone.monthly,
+          borderColor: color,
+          backgroundColor: color,
+          pointStyle: "circle",
+          pointRadius: 4,
+          borderWidth: 2.5,
+          tension: 0.22
+        },
+        {
+          label: "Model +0",
+          data: result.modelMonthly0,
+          borderColor: "#8e24aa",
+          backgroundColor: "#8e24aa",
+          pointStyle: "triangle",
+          pointRadius: 4,
+          borderWidth: 2.5,
+          borderDash: [7,5],
+          tension: 0.22
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      scales: {
+        y: {
+          title: { display: true, text: "Temperature (degC)" }
+        }
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `${result.zone.label}: +0 model vs reference`
+        }
+      }
+    }
+  });
+}
+
+function renderAllResults(){
+  renderOverviewCards();
+  renderSummaryTables();
+  renderDetail(selectedZoneKey || validationResults[0].zoneKey);
+  showResults();
+}
+
+async function runValidation(){
+  const button = document.getElementById("btnRunValidation");
+  const zones = Object.entries(GROUND_TEMP_05M);
+
+  button.disabled = true;
+  resetView();
+  setStatus("Starting validation...", "loading");
+
+  try {
+    for (let i = 0; i < zones.length; i++){
+      const [zoneKey, zone] = zones[i];
+      setStatus(`Fetching Zone ${i + 1} of ${zones.length} (${zone.label})...`, "loading");
+
+      const fetched = await fetchZoneValidation(zone);
+      validationResults.push({
+        zoneKey,
+        zone,
+        modelMonthly6: fetched.modelMonthly6,
+        modelMonthly0: fetched.modelMonthly0,
+        meta: fetched.meta,
+        stats6: calculateStats(zone, fetched.modelMonthly6),
+        stats0: calculateStats(zone, fetched.modelMonthly0)
+      });
+    }
+
+    selectedZoneKey = validationResults[0]?.zoneKey || null;
+    renderAllResults();
+
+    const avgMae6 = mean(validationResults.map(result => result.stats6.mae));
+    const avgMae0 = mean(validationResults.map(result => result.stats0.mae));
+    setStatus(`Validation complete. Average MAE: +6 = ${avgMae6.toFixed(2)}&deg;C, +0 = ${avgMae0.toFixed(2)}&deg;C.`, "ok");
+  } catch (error){
+    console.error(error);
+    setStatus(`Validation failed: ${error.message}`, "err");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById("btnRunValidation").addEventListener("click", runValidation);
+
+function handleSummaryClick(event){
+  const button = event.target.closest(".zone-button");
+  if (!button) return;
+  renderDetail(button.getAttribute("data-zone-key"));
+}
+
+document.getElementById("summaryTableWrap6").addEventListener("click", handleSummaryClick);
+document.getElementById("summaryTableWrap0").addEventListener("click", handleSummaryClick);
+</script>
+</body>
+</html>

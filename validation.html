@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Validation 1 — BC-Aus vs CER (offset +6°F)</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:18px;color:#111;background:#fff;}
+    .wrap{max-width:980px;}
+    h1{font-size:20px;margin:0 0 10px;}
+    h2{font-size:18px;margin:0 0 10px;}
+    h3{font-size:14px;margin:0 0 8px;}
+    .panel{padding:12px;border:1px solid #ddd;background:#fafafa;border-radius:8px;margin-top:10px;}
+    .hero{padding:12px;}
+    .eyebrow{display:none;}
+    .hero-copy,.step-copy,.summary-note,.provenance,.card-note,.legend-note,.status{font-size:12px;color:#444;line-height:1.45;}
+    .btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0;}
+    button{padding:10px 12px;cursor:pointer;border:1px solid #bbb;background:#fff;color:#111;border-radius:0;font:inherit;font-weight:normal;box-shadow:none;}
+    button:disabled{cursor:not-allowed;opacity:0.7;}
+    .loading{color:#0066cc;}
+    .ok{color:#0b6b2d;}
+    .warn{color:#9a6700;}
+    .err{color:#b00020;}
+    .lede{font-size:12px;color:#444;line-height:1.45;margin-top:6px;}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .card{padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;}
+    .card-label{font-size:12px;color:#444;margin-bottom:6px;font-weight:bold;}
+    .card-value{font-size:22px;margin-bottom:6px;}
+    .how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .how-step{padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;}
+    .step-num{display:inline-block;margin-bottom:8px;font-size:12px;font-weight:bold;color:#444;}
+    .result-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px;background:#fff;}
+    .result-table th,.result-table td{padding:6px 10px;text-align:left;border-bottom:1px solid #ddd;vertical-align:top;}
+    .result-table th{background:#f5f5f5;font-weight:600;}
+    .result-table td.num{text-align:right;font-family:monospace;}
+    .zone-button{padding:0;border:0;background:none;color:#1565c0;font:inherit;font-weight:normal;cursor:pointer;box-shadow:none;text-align:left;text-decoration:underline;}
+    .zone-button.selected{font-weight:bold;color:#0b4d91;}
+    .verdict-pill{font-size:13px;font-weight:normal;background:none;padding:0;border-radius:0;}
+    .detail-shell{display:grid;grid-template-columns:280px 1fr;gap:12px;align-items:start;}
+    .detail-card,.chart-card{padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;}
+    .detail-meta{display:grid;gap:8px;margin-top:10px;font-size:12px;color:#444;line-height:1.45;}
+    .chart-container{position:relative;height:340px;margin:8px 0 2px;}
+    .provenance p{margin:0 0 10px 0;}
+    .problem-box{padding:12px;border:1px solid #e3b4b4;background:#fff1f1;border-radius:8px;}
+    .problem-title{color:#b00020;font-weight:700;margin-bottom:6px;}
+    .hidden{display:none;}
+    a{color:#1565c0;}
+    code{font-family:Consolas,monospace;font-size:12px;}
+    @media (max-width:900px){
+      .cards,.how-grid,.detail-shell{grid-template-columns:1fr;}
+      .chart-container{height:300px;}
+    }
+  </style>
+  <script src="assets/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel hero">
+    <div class="eyebrow">Validation Page</div>
+    <div style="margin:0 0 10px;"><a href="index.html" style="font-size:13px;color:#1a5f9a;text-decoration:none;font-weight:600;">&larr; Back to calculator</a></div><h1>Validation 1: BC-Aus vs CER reference (standard +6°F offset)</h1>
+    <div class="hero-copy">
+      Compares the calculator's Burch-Christensen mains water model with CER (Clean Energy Regulator) monthly reference values.
+    </div>
+    <div class="btn-row">
+      <button id="btnRunValidation" type="button">Run Validation</button>
+      <div id="statusText" class="status">Ready. Start the local backend at <code>http://localhost:8000/tmy</code> and then run the validation.</div>
+    </div>
+    <div class="lede">
+      CER = fixed monthly reference.<br>
+      Model = TMY-based calculation.<br>
+      Click a zone to view its chart.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>How It Works</h2>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="step-num">1</div>
+        <h3>CER Data</h3>
+        <div class="step-copy">
+          Monthly cold water values come from the local CER TRNSYS deck files in <code>validation/</code>.
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">2</div>
+        <h3>TMY Input</h3>
+        <div class="step-copy">
+          The page fetches TMY weather from the local <code>/tmy</code> endpoint for each zone.
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">3</div>
+        <h3>Model</h3>
+        <div class="step-copy">
+          It runs the same Burch-Christensen calculation as <code>index.html</code> and compares month by month.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="overviewPanel" class="panel hidden">
+    <h2>Summary</h2>
+    <div id="overviewCards" class="cards"></div>
+  </div>
+
+  <div id="summaryPanel" class="panel hidden">
+    <h2>Zone Summary</h2>
+    <div class="summary-note">
+      Click a zone name for its chart.
+    </div>
+    <div id="summaryTableWrap"></div>
+  </div>
+
+  <div id="detailPanel" class="panel hidden">
+    <h2 id="detailTitle">Zone Detail</h2>
+    <div class="detail-shell">
+      <div id="detailMeta" class="detail-card"></div>
+      <div class="chart-card">
+        <div class="chart-container">
+          <canvas id="detailChart"></canvas>
+        </div>
+        <div class="legend-note">Solid circles show the CER reference temperatures. Dashed triangles show the model prediction from the TMY-driven Burch-Christensen calculation.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Source</h2>
+    <div class="provenance">
+      <p>
+        CER reference values were extracted from the local TRNSYS deck files in <code>validation/</code>:
+        <code>zone1_NW_Domestic.inc</code>, <code>zone2_NW_Domestic.inc</code>, <code>zone3_NW_Domestic.inc</code>,
+        <code>zone4_NW_Domestic.inc</code>, and <code>ZONEHP5_Au_Domestic.inc</code>.
+      </p>
+      <p style="margin-top:10px;">
+        The files include the note <code>Revised 20/07/15</code>. These values are certification schedules, not one measured calendar year.
+      </p>
+      <p style="margin-top:10px;">
+        Model weather comes from PVGIS TMY via the local backend. A TMY is a representative year, not one specific year.
+      </p>
+      <p style="margin-top:10px;">
+        Official CER source:
+        <a href="https://cer.gov.au/schemes/renewable-energy-target/renewable-energy-target-participants-and-industry/manufacturers-and-importers" target="_blank" rel="noopener">
+          https://cer.gov.au/schemes/renewable-energy-target/renewable-energy-target-participants-and-industry/manufacturers-and-importers
+        </a>
+      </p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="problem-box">
+      <div class="problem-title">PROBLEM</div>
+      <div class="provenance">
+        The model matches the seasonal shape well, but it tends to over-predict winter mains temperatures, especially in cooler inland zones. A likely reason is that the original NREL correlation was developed for US conditions, while Australian pipe depth, soil, and network conditions may differ.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CER_MAINS_TEMP = {
+  zone1_rockhampton:  { lat: -23.4, lon: 150.51, label: "Zone 1 - Rockhampton", file: "validation/zone1_NW_Domestic.inc", monthly: [28,28,27,25,23,20,20,21,24,26,28,28] },
+  zone2_alicesprings: { lat: -23.5, lon: 133.88, label: "Zone 2 - Alice Springs", file: "validation/zone2_NW_Domestic.inc", monthly: [29,27,24,20,14,11,9,12,18,23,26,28] },
+  zone3_sydney:       { lat: -33.4, lon: 151.21, label: "Zone 3 - Sydney", file: "validation/zone3_NW_Domestic.inc", monthly: [23,23,21,18,15,12,11,12,15,19,21,22] },
+  zone4_melbourne:    { lat: -37.8, lon: 144.97, label: "Zone 4 - Melbourne", file: "validation/zone4_NW_Domestic.inc", monthly: [20,20,18,15,11,9,8,10,12,15,17,19] },
+  zone5_canberra:     { lat: -35.3, lon: 149.13, label: "Zone 5 - Canberra", file: "validation/ZONEHP5_Au_Domestic.inc", monthly: [18,18,19,15,13,9,5,5,7,8,12,16] }
+};
+
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTH_DAYS  = [31,28,31,30,31,30,31,31,30,31,30,31];
+const TMY_TIMEOUT_MS = 45000;
+const ZONE_COLORS = ["#1f78d1","#d14343","#3c8e4e","#7a42c8","#e57b15"];
+
+let detailChartInstance = null;
+let validationResults = [];
+let selectedZoneKey = null;
+
+function isFiniteNumber(x){ return typeof x === "number" && Number.isFinite(x); }
+function cToF(c){ return (c * 9 / 5) + 32; }
+function fToC(f){ return (f - 32) * 5 / 9; }
+
+function monthFromDayN(dayN){
+  let s = 0;
+  for (let m = 0; m < MONTH_DAYS.length; m++){
+    s += MONTH_DAYS[m];
+    if (dayN <= s) return m + 1;
+  }
+  return 12;
+}
+
+function fetchWithTimeout(url, options={}, timeoutMs=10000){
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timerId));
+}
+
+function normalizeWeatherRecords(raw){
+  let arr;
+  if (Array.isArray(raw)) arr = raw;
+  else if (raw && typeof raw === "object") arr = Object.values(raw);
+  else throw new Error("Unsupported weather data structure.");
+
+  const out = [];
+  for (const r of arr){
+    if (!r || typeof r !== "object") continue;
+    const dayN  = +(r.dayN ?? r.dayn ?? r.DayN ?? r.DAYN);
+    let   hourN = +(r.hourN ?? r.hourn ?? r.HourN ?? r.HOURN);
+    const dni   = +(r.DNI ?? r.dni ?? r.Dni);
+    const dhi   = +(r.DHI ?? r.dhi ?? r.Dhi);
+    const ta    = +(r.Ta  ?? r.ta  ?? r.TA);
+    const vwind = +(r.Vwind ?? r.vwind ?? r.VWIND ?? r.VWind);
+    if (Number.isFinite(hourN) && hourN >= 1 && hourN <= 24) hourN = hourN - 1;
+    out.push({ dayN, hourN, dni, dhi, ta, vwind });
+  }
+  return out;
+}
+
+function normalizeTMYRecords(raw){
+  const arr = Array.isArray(raw?.records) ? raw.records : (Array.isArray(raw) ? raw : null);
+  if (!arr) throw new Error("TMY JSON missing records[]");
+  return normalizeWeatherRecords(arr);
+}
+
+function calculateLocalTMains(met, latitude){
+  const validTa = met.map(r => r.ta).filter(isFiniteNumber);
+  if (!validTa.length) throw new Error("Cannot calculate T_mains: missing ambient temperature data.");
+
+  const annualAvgTaC = validTa.reduce((a,b)=>a+b,0) / validTa.length;
+  const monthBuckets = Array.from({length:12}, () => []);
+  for (const r of met){
+    if (!isFiniteNumber(r.dayN) || !isFiniteNumber(r.ta)) continue;
+    monthBuckets[monthFromDayN(r.dayN) - 1].push(r.ta);
+  }
+
+  const monthAvgC = monthBuckets.map(arr => arr.length ? (arr.reduce((a,b)=>a+b,0) / arr.length) : annualAvgTaC);
+  const maxMonthAvgC = Math.max(...monthAvgC);
+  const minMonthAvgC = Math.min(...monthAvgC);
+  const deltaMonthC = maxMonthAvgC - minMonthAvgC;
+
+  const annualAvgTaF = cToF(annualAvgTaC);
+  const deltaMonthF = deltaMonthC * 9 / 5;
+  const ratio = 0.4 + 0.01 * (annualAvgTaF - 44);
+  const lag = 35 - (annualAvgTaF - 44);
+  const lat = Number.isFinite(latitude) ? latitude : 0;
+
+  const byMonthBuckets = Array.from({length:12}, () => []);
+  let sumC = 0;
+
+  for (let day = 1; day <= 365; day++){
+    const modelDay = lat >= 0 ? day : (((day + 182 - 1) % 365) + 1);
+    const angleDeg = 0.986 * (modelDay - 15 - lag) - 90;
+    const angleRad = angleDeg * Math.PI / 180;
+    const tMainsF = (annualAvgTaF + 6) + ratio * (deltaMonthF / 2) * Math.sin(angleRad);
+    const tMainsC = fToC(tMainsF);
+    byMonthBuckets[monthFromDayN(day) - 1].push(tMainsC);
+    sumC += tMainsC;
+  }
+
+  const byMonth = byMonthBuckets.map((arr, i) => ({
+    month: i + 1,
+    avgC: arr.length ? (arr.reduce((a,b)=>a+b,0) / arr.length) : null
+  }));
+
+  return { annualAvgC: sumC / 365, byMonth };
+}
+
+function mean(values){
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function getVerdict(mae){
+  if (mae < 2) return { text: "Good agreement", className: "ok" };
+  if (mae <= 3) return { text: "Acceptable", className: "warn" };
+  return { text: "Poor", className: "err" };
+}
+
+function setStatus(message, cssClass=""){
+  const el = document.getElementById("statusText");
+  el.className = `status ${cssClass}`.trim();
+  el.innerHTML = message;
+}
+
+function findLargestGap(errors){
+  const absErrors = errors.map(Math.abs);
+  const maxAbsError = Math.max(...absErrors);
+  const maxMonthIndex = absErrors.indexOf(maxAbsError);
+  return { maxAbsError, maxMonthIndex };
+}
+
+async function fetchZoneValidation(zone){
+  const url = `http://localhost:8000/tmy?lat=${encodeURIComponent(zone.lat)}&lon=${encodeURIComponent(zone.lon)}`;
+  const resp = await fetchWithTimeout(url, { headers:{"Accept":"application/json"} }, TMY_TIMEOUT_MS);
+  if (!resp.ok){
+    throw new Error(`TMY fetch failed for ${zone.label}: HTTP ${resp.status}`);
+  }
+
+  const raw = await resp.json();
+  const met = normalizeTMYRecords(raw);
+  const mains = calculateLocalTMains(met, zone.lat);
+  const modelMonthly = mains.byMonth.map(row => row.avgC);
+  return { modelMonthly, mains, meta: raw.meta || null };
+}
+
+function calculateStats(zone, modelMonthly){
+  const errors = modelMonthly.map((value, idx) => value - zone.monthly[idx]);
+  const mae = mean(errors.map(value => Math.abs(value)));
+  const largestGap = findLargestGap(errors);
+  const modelAnnual = mean(modelMonthly);
+  const cerAnnual = mean(zone.monthly);
+
+  return {
+    errors,
+    mae,
+    maxAbsError: largestGap.maxAbsError,
+    maxMonthIndex: largestGap.maxMonthIndex,
+    modelAnnual,
+    cerAnnual,
+    verdict: getVerdict(mae)
+  };
+}
+
+function resetView(){
+  if (detailChartInstance) detailChartInstance.destroy();
+  detailChartInstance = null;
+  validationResults = [];
+  selectedZoneKey = null;
+  document.getElementById("overviewPanel").classList.add("hidden");
+  document.getElementById("summaryPanel").classList.add("hidden");
+  document.getElementById("detailPanel").classList.add("hidden");
+  document.getElementById("overviewCards").innerHTML = "";
+  document.getElementById("summaryTableWrap").innerHTML = "";
+  document.getElementById("detailMeta").innerHTML = "";
+  document.getElementById("detailTitle").textContent = "Zone Detail";
+}
+
+function showResults(){
+  document.getElementById("overviewPanel").classList.remove("hidden");
+  document.getElementById("summaryPanel").classList.remove("hidden");
+  document.getElementById("detailPanel").classList.remove("hidden");
+}
+
+function getResultByKey(zoneKey){
+  return validationResults.find(result => result.zoneKey === zoneKey) || null;
+}
+
+function renderOverviewCards(){
+  const avgMae = mean(validationResults.map(result => result.stats.mae));
+
+  document.getElementById("overviewCards").innerHTML = `
+    <div class="card">
+      <div class="card-label">Average (Mean Absolute Error)</div>
+      <div class="card-value">${avgMae.toFixed(2)}&deg;C</div>
+      <div class="card-note">Across 5 zones.</div>
+    </div>
+  `;
+}
+
+function renderSummaryTable(){
+  let html = `
+    <table class="result-table">
+      <tr>
+        <th>Zone</th>
+        <th style="text-align:right;">MAE (&deg;C)</th>
+        <th style="text-align:right;">Largest Gap</th>
+        <th style="text-align:right;">Annual Avg Model</th>
+        <th style="text-align:right;">Annual Avg CER</th>
+        <th>Verdict</th>
+      </tr>`;
+
+  validationResults.forEach(result => {
+    html += `
+      <tr>
+        <td>
+          <button type="button" class="zone-button${selectedZoneKey === result.zoneKey ? " selected" : ""}" data-zone-key="${result.zoneKey}">
+            ${result.zone.label}
+          </button>
+        </td>
+        <td class="num">${result.stats.mae.toFixed(2)}</td>
+        <td class="num">${result.stats.maxAbsError.toFixed(2)} (${MONTH_NAMES[result.stats.maxMonthIndex]})</td>
+        <td class="num">${result.stats.modelAnnual.toFixed(2)}</td>
+        <td class="num">${result.stats.cerAnnual.toFixed(2)}</td>
+        <td><span class="verdict-pill ${result.stats.verdict.className}">${result.stats.verdict.text}</span></td>
+      </tr>`;
+  });
+
+  html += "</table>";
+  document.getElementById("summaryTableWrap").innerHTML = html;
+}
+
+function renderDetail(zoneKey){
+  const result = getResultByKey(zoneKey);
+  if (!result) return;
+
+  selectedZoneKey = zoneKey;
+  renderSummaryTable();
+
+  document.getElementById("detailTitle").textContent = `${result.zone.label} Detail`;
+
+  document.getElementById("detailMeta").innerHTML = `
+    <h3>${result.zone.label}</h3>
+    <div style="color:#444;font-size:13px;line-height:1.45;">
+      CER reference vs model output for this zone.
+    </div>
+    <div class="detail-meta">
+      <div><b>Latitude / Longitude:</b><br>${result.zone.lat.toFixed(2)}, ${result.zone.lon.toFixed(2)}</div>
+      <div><b>CER source file:</b><br><code>${result.zone.file}</code></div>
+      <div><b>Deck note:</b><br><code>Revised 20/07/15</code></div>
+      <div><b>Largest monthly gap:</b><br>${result.stats.maxAbsError.toFixed(2)}&deg;C in ${MONTH_NAMES[result.stats.maxMonthIndex]}</div>
+      <div><b>Annual average:</b><br>Model ${result.stats.modelAnnual.toFixed(2)}&deg;C vs CER ${result.stats.cerAnnual.toFixed(2)}&deg;C</div>
+      <div><b>Year note:</b><br>Not one single year. CER is a fixed schedule; model uses a TMY.</div>
+    </div>
+  `;
+
+  if (detailChartInstance) detailChartInstance.destroy();
+  const color = ZONE_COLORS[validationResults.findIndex(item => item.zoneKey === zoneKey) % ZONE_COLORS.length];
+  const ctx = document.getElementById("detailChart").getContext("2d");
+  detailChartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: MONTH_NAMES,
+      datasets: [
+        {
+          label: "CER reference",
+          data: result.zone.monthly,
+          borderColor: color,
+          backgroundColor: color,
+          pointStyle: "circle",
+          pointRadius: 4,
+          borderWidth: 2.5,
+          tension: 0.22
+        },
+        {
+          label: "Model prediction",
+          data: result.modelMonthly,
+          borderColor: color,
+          backgroundColor: color,
+          pointStyle: "triangle",
+          pointRadius: 4,
+          borderWidth: 2.5,
+          borderDash: [7,5],
+          tension: 0.22
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      scales: {
+        y: {
+          title: { display: true, text: "Temperature (degC)" }
+        }
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `${result.zone.label}: model vs CER`
+        }
+      }
+    }
+  });
+}
+
+function renderAllResults(){
+  renderOverviewCards();
+  renderSummaryTable();
+  renderDetail(selectedZoneKey || validationResults[0].zoneKey);
+  showResults();
+}
+
+async function runValidation(){
+  const button = document.getElementById("btnRunValidation");
+  const zones = Object.entries(CER_MAINS_TEMP);
+
+  button.disabled = true;
+  resetView();
+  setStatus("Starting validation...", "loading");
+
+  try {
+    for (let i = 0; i < zones.length; i++){
+      const [zoneKey, zone] = zones[i];
+      const city = zone.label.replace(/^Zone\s+\d+\s+-\s+/, "");
+      setStatus(`Fetching Zone ${i + 1} of ${zones.length} (${city})...`, "loading");
+
+      const fetched = await fetchZoneValidation(zone);
+      validationResults.push({
+        zoneKey,
+        zone,
+        modelMonthly: fetched.modelMonthly,
+        meta: fetched.meta,
+        stats: calculateStats(zone, fetched.modelMonthly)
+      });
+    }
+
+    selectedZoneKey = validationResults[0]?.zoneKey || null;
+    renderAllResults();
+
+    const avgMae = mean(validationResults.map(result => result.stats.mae));
+    setStatus(`Validation complete. Average MAE across ${validationResults.length} zones: ${avgMae.toFixed(2)}&deg;C.`, "ok");
+  } catch (error){
+    console.error(error);
+    setStatus(`Validation failed: ${error.message}`, "err");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById("btnRunValidation").addEventListener("click", runValidation);
+
+document.getElementById("summaryTableWrap").addEventListener("click", event => {
+  const button = event.target.closest(".zone-button");
+  if (!button) return;
+  renderDetail(button.getAttribute("data-zone-key"));
+});
+</script>
+</body>
+</html>

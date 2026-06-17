@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mains Water Temperature Formula</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:18px;color:#111;background:#fff;}
+    .wrap{max-width:980px;}
+    h1{font-size:20px;margin:0 0 10px;}
+    h2{font-size:18px;margin:0 0 10px;}
+    .panel{padding:12px;border:1px solid #ddd;background:#fafafa;border-radius:8px;margin-top:10px;}
+    .note{font-size:12px;color:#444;line-height:1.45;}
+    .formula{
+      margin:10px 0;
+      padding:12px;
+      border:1px solid #ddd;
+      background:#fff;
+      border-radius:6px;
+      font-family:Consolas,monospace;
+      font-size:14px;
+      line-height:1.6;
+      overflow:auto;
+    }
+    .result-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px;background:#fff;}
+    .result-table th,.result-table td{padding:6px 10px;text-align:left;border-bottom:1px solid #ddd;vertical-align:top;}
+    .result-table th{background:#f5f5f5;font-weight:600;}
+    code{font-family:Consolas,monospace;font-size:12px;}
+    a{color:#1565c0;}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <div style="margin:0 0 10px;"><a href="index.html" style="font-size:13px;color:#1a5f9a;text-decoration:none;font-weight:600;">&larr; Back to calculator</a></div><h1>Validation5: Mains Water Temperature Formula</h1>
+    <div class="note">
+      algorithm used in the calculator to estimate mains water temperature from ambient temperature data.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Main Formula</h2>
+    <div class="formula">T_mains,F = (T_avg,F + 6) + ratio * (DeltaT_month,F / 2) * sin(angle)</div>
+    <div class="note" style="color:#c00000;font-weight:700;text-transform:uppercase;">
+      The +6 is a Fahrenheit offset that accounts for the ground being warmer than the air on average.
+    </div>
+    <div class="note">in code</div>
+    <div class="formula">const tMainsF = (annualAvgTaF + 6) + ratio * (deltaMonthF / 2) * Math.sin(angleRad);</div>
+  </div>
+
+  <div class="panel">
+    <h2>Algorithm Calculation</h2>
+    <div class="formula">ratio = 0.4 + 0.01 * (T_avg,F - 44)</div>
+    <div class="formula">lag = 35 - (T_avg,F - 44)</div>
+    <div class="formula">angle = 0.986 * (modelDay - 15 - lag) - 90</div>
+    <div class="note">
+      Converts ambient temperature inputs to Fahrenheit, then uses the sinusoidal formula to estimate daily mains temperature.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>What Each Term Means</h2>
+    <table class="result-table">
+      <tr><th>Term</th><th>Meaning</th></tr>
+      <tr><td><code>T_mains,F</code></td><td>Estimated mains water temperature in Fahrenheit</td></tr>
+      <tr><td><code>T_avg,F</code></td><td>Annual average ambient air temperature in Fahrenheit</td></tr>
+      <tr><td><code>DeltaT_month,F</code></td><td>Difference between the warmest and coolest monthly average ambient temperatures in Fahrenheit</td></tr>
+      <tr><td><code>ratio</code></td><td>Controls how large the seasonal swing is</td></tr>
+      <tr><td><code>lag</code></td><td>Shifts the timing of the sinusoidal curve through the year</td></tr>
+      <tr><td><code>modelDay</code></td><td>Day number used by the sinusoidal model, adjusted for hemisphere</td></tr>
+      <tr><td><code>angle</code></td><td>Angle fed into the sine function for the daily temperature estimate</td></tr>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>How The Calculator Uses It</h2>
+    <div class="note">
+      1. Load TMY weather data.<br>
+      2. Calculate monthly average ambient temperature.<br>
+      3. Find the annual average ambient temperature and the monthly temperature range.<br>
+      4. Use the sinusoidal formula to estimate daily mains water temperature.<br>
+      5. Average those daily values into monthly mains temperatures for display and modelling.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Source</h2>
+    <div class="note">
+      Hendron, R., Anderson, R., Christensen, C., Eastment, M., and Reeves, P. (2004). "Development of an Energy Savings Benchmark for All Residential End-Uses." Proceedings of SimBuild 2004, IBPSA-USA National Conference, Boulder, CO, August 4-6, 2004.
+    </div>
+    <div class="note" style="margin-top:8px;">
+      EnergyPlus Engineering Reference:
+      <a href="https://bigladdersoftware.com/epx/docs/9-1/engineering-reference/water-systems.html" target="_blank" rel="noopener">https://bigladdersoftware.com/epx/docs/9-1/engineering-reference/water-systems.html</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>
