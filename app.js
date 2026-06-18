@@ -241,7 +241,7 @@ function buildPdfTemplateDocument(){
   const industryLabel = getSelectedOptionText("industrySelect") || "None";
   const profileLabel = getSelectedOptionText("profileType") || "N/A";
   const reportFilename = buildReportFilename(locationName);
-  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 10.3";
+  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 11.8";
   const weatherRecords = Array.isArray(CURRENT_MET) ? CURRENT_MET.length : 0;
   const timezoneText = CURRENT_TZ ? getTimezoneDisplay(CURRENT_TZ) : "N/A";
   const mainsText = CURRENT_MAINS
@@ -858,9 +858,12 @@ function getReportEmailEndpoints(){
   return isLocalFrontend() ? [localEndpoint] : [remoteEndpoint];
 }
 
-function setTmyLoadStatus(msg){
+function setTmyLoadStatus(msg, spinning){
   const el = document.getElementById("locConfirm");
-  if (el && msg) el.innerHTML = `<span style="color:#8a6d00;">${escapeHtml(msg)}</span>`;
+  if (el && msg){
+    const spin = spinning ? `<span class="cs-spinner"></span>` : "";
+    el.innerHTML = `<span style="color:#8a6d00;display:inline-flex;align-items:center;">${spin}${escapeHtml(msg)}</span>`;
+  }
 }
 
 async function fetchTMY(lat, lon){
@@ -880,7 +883,7 @@ async function fetchTMY(lat, lon){
     for (let attempt = 1; attempt <= endpoint.attempts; attempt++){
       try {
         if (/hosted/i.test(endpoint.label)){
-          setTmyLoadStatus("Contacting the hosted weather service — this can take up to ~1 minute if it is waking up…");
+          setTmyLoadStatus("Contacting the hosted weather service — this can take up to ~1 minute if it is waking up…", true);
         }
         const resp = await fetchWithTimeout(endpoint.url + query, { headers:{"Accept":"application/json"} }, endpoint.timeoutMs);
         if (!resp.ok){
@@ -4219,6 +4222,11 @@ async function calcAnnualPVT(){
     const A            = parseFloat(document.getElementById("area").value);
     const flowRate     = parseFloat(document.getElementById("flowRate").value);
     const etaPv        = parseFloat(document.getElementById("etaPv").value);
+    // Optional PV temperature correction (comparison only — does not affect economics).
+    // NOCT cell-temperature model + power temperature coefficient, like PVWatts.
+    const pvTempCorrEnable = !!document.getElementById("pvTempCorrEnable")?.checked;
+    const pvTempCoeffPerC  = (parseFloat(document.getElementById("pvTempCoeff")?.value) || 0) / 100; // %/degC -> per degC
+    const PV_NOCT_C = 45;
     const a0           = parseFloat(document.getElementById("pvtA0").value);
     const a1           = parseFloat(document.getElementById("pvtA1").value);
     const a2           = parseFloat(document.getElementById("pvtA2").value);
@@ -4270,7 +4278,7 @@ async function calcAnnualPVT(){
 
     // 3) Calculate supply
     const calculator = new TiltedSurfaceRadiation(latitude, longitude, tiltAngle, azimuthAngle, albedo);
-    let E_pv_kWh = 0, E_th_kWh = 0;
+    let E_pv_kWh = 0, E_th_kWh = 0, E_pv_tc_kWh = 0;
     const out = [];
     out.push(["dayN","hourN","gtilt_Wm2","eta_th","pv_kWh","th_kWh","totalFlow_kg_hr","Tout_C"].join(","));
     let used = 0;
@@ -4290,6 +4298,15 @@ async function calcAnnualPVT(){
 
       let etaTh = 0, th_W = 0;
       const pv_kWh = (etaPv * G * A) / 1000;
+
+      // Comparison-only temperature-corrected PV (NOCT cell temp + power coefficient).
+      let pv_kWh_tc = pv_kWh;
+      if (pvTempCorrEnable && G > 1e-6){
+        const Tcell  = r.ta + ((PV_NOCT_C - 20) / 800) * G;     // deg C
+        const factor = 1 + pvTempCoeffPerC * (Tcell - 25);      // 1 at 25 deg C cell
+        pv_kWh_tc = pv_kWh * Math.max(0, factor);
+      }
+      E_pv_tc_kWh += pv_kWh_tc;
 
       if (thermalModel === 'A') {
         // Model A: simple linear
@@ -4390,6 +4407,19 @@ async function calcAnnualPVT(){
     const fmtNumber = (v, d=2) => Number(v).toLocaleString(undefined, { minimumFractionDigits:d, maximumFractionDigits:d });
     const fmtE = (v, d=2, unit='') => v != null ? `${fmtNumber(v, d)}${unit ? ' '+unit : ''}` : '&mdash;';
     const fmtC = (v) => v != null ? `$${fmtNumber(v, 2)}` : '&mdash;';
+    // Temperature-correction comparison strings (only when the toggle is on).
+    const pvTcDeltaPct = (pvTempCorrEnable && E_pv_kWh > 1e-9) ? (E_pv_tc_kWh / E_pv_kWh - 1) * 100 : 0;
+    const pvTcSign = pvTcDeltaPct >= 0 ? '+' : '';
+    const pvTcBox = pvTempCorrEnable
+      ? `<div class="annual-summary-item annual-tempcorr">
+          <span>PV (temp-corrected)</span>
+          <strong>${fmtE(E_pv_tc_kWh,1,'kWh')}</strong>
+          <small>Uncooled-equivalent &middot; ${pvTcSign}${pvTcDeltaPct.toFixed(1)}%</small>
+        </div>`
+      : '';
+    const pvTcDetailRow = pvTempCorrEnable
+      ? `<tr><td><b>PV Energy (temp-corrected, &gamma;=${(pvTempCoeffPerC*100).toFixed(2)}%/&deg;C)</b></td><td class="num"><span class="ok">${fmtE(E_pv_tc_kWh,1,'kWh')}</span> <span style="color:#b35900;">(${pvTcSign}${pvTcDeltaPct.toFixed(1)}%)</span></td></tr>`
+      : '';
     let html = `
       <div class="output-card output-card-annual" style="position:relative;">
       <div class="annual-card-head">
@@ -4420,6 +4450,7 @@ async function calcAnnualPVT(){
           <strong>${fmtC(netAnnualBenefit)} /yr</strong>
           <small>Upper-bound annual value (100% utilisation)</small>
         </div>
+        ${pvTcBox}
       </div>
       <div class="annual-actions">
         <button type="button" class="detail-toggle" onclick="toggleAnnualDetails(this)" aria-expanded="false">Show detailed results</button>
@@ -4429,6 +4460,7 @@ async function calcAnnualPVT(){
       <h4 style="margin:4px 0 6px;color:#1a5276;">Energy Detail</h4>
       <table class="result-table">
         <tr><td><b>PV Energy</b></td><td class="num"><span class="ok">${fmtE(E_pv_kWh,1,'kWh')}</span></td></tr>
+        ${pvTcDetailRow}
         <tr><td><b>Thermal Energy (PVT model)</b></td><td class="num"><span class="ok">${fmtE(E_th_kWh,1,'kWh')}</span></td></tr>
         <tr><td><b>Total Energy</b></td><td class="num"><span class="ok">${fmtE(totalEnergy,1,'kWh')}</span></td></tr>
       </table>
@@ -5236,7 +5268,7 @@ warmHostedTMYService();
 document.getElementById("btnLoadTMY").addEventListener("click", async () => {
   const btn = document.getElementById("btnLoadTMY");
   btn.disabled = true;
-  btn.textContent = "Loading…";
+  btn.innerHTML = `<span class="cs-spinner"></span>Loading…`;
   try { await loadTMYFromUI(); }
   catch(e){
     console.error(e);

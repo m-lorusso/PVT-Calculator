@@ -1,5 +1,9 @@
 /* Styles for the Annual PVT Calculator (extracted from index.html) */
 *,*::before,*::after{box-sizing:border-box;}
+
+/* Inline loading spinner — inherits text colour (white on button, gold on status text) */
+.cs-spinner{display:inline-block;width:1em;height:1em;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:cs-spin 0.7s linear infinite;vertical-align:-0.15em;margin-right:7px;}
+@keyframes cs-spin{to{transform:rotate(360deg);}}
 html{overflow-x:hidden;}
 
 /* Custom scrollbar — matches the dark-blue header theme */
@@ -79,6 +83,8 @@ body.testing-mode .kwater-label{display:inline;}
 .annual-summary-item small{display:block;margin-top:6px;color:rgba(255,255,255,0.82);line-height:1.35;}
 .annual-summary-item strong,.industry-summary-cell strong,.insight-pill .big,.energy-flow-card strong,.metric-value,.summary-value{overflow-wrap:anywhere;}
 .annual-summary-item.annual-finance{border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.16);}
+.annual-summary-item.annual-tempcorr{border-color:rgba(255,206,120,0.5);background:rgba(255,193,90,0.15);}
+.annual-summary-item.annual-tempcorr small{color:#ffe1a8;}
 .annual-summary-item.annual-finance.negative{border-color:rgba(255,255,255,0.24);background:rgba(255,255,255,0.12);}
 .annual-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.22);}
 .output-card-annual .annual-actions .note{color:rgba(255,255,255,0.86);}
@@ -268,6 +274,10 @@ body.testing-mode .kwater-label{display:inline;}
 .advanced-settings-body{padding:12px 14px;border-top:1px solid #e5ebf2;}
 .advanced-settings-body.animate{animation:slideDown 0.65s ease;}
 .advanced-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;align-items:center;}
+/* PV temperature-correction toggle — keep the checkbox small so the label reads on one line */
+.tempcorr-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;line-height:1.35;}
+.tempcorr-toggle input[type=checkbox]{width:17px;height:17px;min-width:17px;min-height:17px;max-height:17px;flex:0 0 17px;margin:0;padding:0;align-self:center;}
+.tempcorr-toggle>span{flex:1;}
 .advanced-reset-row{display:flex;justify-content:flex-end;margin:0 0 2px;}
 .advanced-reset-button{min-height:38px;padding:10px 16px;background:#e8edf3;color:#2c3a4a;border:1px solid #c0c8d4;border-radius:6px;font-size:13px;font-weight:700;box-shadow:none;}
 .advanced-reset-button:hover,.advanced-reset-button:focus{background:#dfe6ee;color:#243241;border-color:#aeb8c6;box-shadow:0 2px 8px rgba(44,58,74,0.12);transform:translateY(-1px);}
