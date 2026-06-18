@@ -3264,19 +3264,23 @@ function renderDailyChart(dailyData){
 }
 
 function renderTemperatureChartJS(monthlyData){
-  const labels=[],toutData=[];
+  const labels=[],toutData=[],tinData=[];
   monthlyData.forEach(row => {
     if (row.month === 0) return;
     labels.push(MONTH_NAMES[row.month - 1]);
-    toutData.push(row.Tout_C_avg > 0 ? row.Tout_C_avg.toFixed(1) : 0);
+    toutData.push(row.Tout_C_avg > 0 ? row.Tout_C_avg.toFixed(1) : null);
+    tinData.push(row.Tin_C_avg > 0 ? row.Tin_C_avg.toFixed(1) : null);
   });
   const ctx = document.getElementById('temperatureChart');
   if (!ctx) return;
   if (temperatureChartInstance) temperatureChartInstance.destroy();
   temperatureChartInstance = new Chart(ctx.getContext('2d'), {
     type:'line',
-    data:{labels, datasets:[{label:'Average Outlet Temperature (\u00B0C)',data:toutData,borderColor:'rgba(103,199,216,1)',backgroundColor:'rgba(103,199,216,0.12)',borderWidth:2,fill:true,tension:0.4}]},
-    options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}},plugins:{title:{display:true,text:'Monthly Average Outlet Temperature'}}}
+    data:{labels, datasets:[
+      {label:'Average Outlet Temperature (\u00B0C)',data:toutData,borderColor:'rgba(103,199,216,1)',backgroundColor:'rgba(103,199,216,0.12)',borderWidth:2,fill:true,tension:0.4},
+      {label:'Average Inlet Temperature (\u00B0C)',data:tinData,borderColor:'rgba(8,61,91,1)',backgroundColor:'rgba(8,61,91,0.05)',borderWidth:2,borderDash:[6,4],pointRadius:3,fill:false,tension:0.4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}},plugins:{title:{display:true,text:'Monthly Average Inlet & Outlet Temperature'}}}
   });
 }
 
@@ -3309,10 +3313,10 @@ function renderTemperatureTable(monthlyData){
   const container = document.getElementById("temperatureDataTable");
   if (!monthlyData?.length){container.innerHTML="";return;}
   const mn = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let html = `<table class="result-table"><tr><th>Month</th><th style="text-align:right;">Avg Tout (\u00B0C)</th></tr>`;
+  let html = `<table class="result-table"><tr><th>Month</th><th style="text-align:right;">Avg Tin (\u00B0C)</th><th style="text-align:right;">Avg Tout (\u00B0C)</th></tr>`;
   monthlyData.forEach(row => {
     if (row.month === 0) return;
-    html += `<tr><td>${mn[row.month]}</td><td class="num">${row.Tout_C_avg > 0 ? row.Tout_C_avg.toFixed(1) : '\u2014'}</td></tr>`;
+    html += `<tr><td>${mn[row.month]}</td><td class="num">${row.Tin_C_avg > 0 ? row.Tin_C_avg.toFixed(1) : '\u2014'}</td><td class="num">${row.Tout_C_avg > 0 ? row.Tout_C_avg.toFixed(1) : '\u2014'}</td></tr>`;
   });
   container.innerHTML = html + `</table>`;
 }
@@ -3321,7 +3325,7 @@ function renderTemperatureTable(monthlyData){
 //  SUPPLY DATA AGGREGATION  (for Chart.js)
 // ================================================================
 function aggregateMonthlyAll(series, year){
-  const months = Array.from({length:12}, () => ({month:0, pv_kWh:0, th_kWh:0, Tout_C_sum:0, Tout_C_count:0, Tout_C_avg:0}));
+  const months = Array.from({length:12}, () => ({month:0, pv_kWh:0, th_kWh:0, Tout_C_sum:0, Tout_C_count:0, Tout_C_avg:0, Tin_C_sum:0, Tin_C_count:0, Tin_C_avg:0}));
   series.forEach(r => {
     if (!r.date) return;
     const d = new Date(r.date);
@@ -3331,9 +3335,13 @@ function aggregateMonthlyAll(series, year){
       months[m].pv_kWh += Number(r.pv_kWh) || 0;
       months[m].th_kWh += Number(r.th_kWh) || 0;
       if (Number(r.Tout_C) > 0){months[m].Tout_C_sum += Number(r.Tout_C); months[m].Tout_C_count += 1;}
+      if (Number(r.Tin_C) > 0){months[m].Tin_C_sum += Number(r.Tin_C); months[m].Tin_C_count += 1;}
     }
   });
-  months.forEach(m => m.Tout_C_avg = m.Tout_C_count > 0 ? m.Tout_C_sum / m.Tout_C_count : 0);
+  months.forEach(m => {
+    m.Tout_C_avg = m.Tout_C_count > 0 ? m.Tout_C_sum / m.Tout_C_count : 0;
+    m.Tin_C_avg  = m.Tin_C_count  > 0 ? m.Tin_C_sum  / m.Tin_C_count  : 0;
+  });
   return months;
 }
 
@@ -5147,9 +5155,10 @@ async function calcAnnualPVT(){
       const cols = out[i].split(",");
       const dayN = +cols[0], hourN = +cols[1]-1, pvKwh = +cols[4], thKwh = +cols[5];
       const toutC = cols[7] === "" ? 0 : +cols[7];
+      const tinC = CURRENT_MAINS?.byDay?.[dayN] ?? CURRENT_MAINS?.annualAvgC ?? 0;
       const d = new Date(BASE_YEAR, 0, 1);
       d.setDate(d.getDate() + (dayN - 1));
-      timeSeries.push({ date:d.toISOString().slice(0,10), dayN, hourN, pv_kWh:pvKwh, th_kWh:thKwh, Tout_C:toutC });
+      timeSeries.push({ date:d.toISOString().slice(0,10), dayN, hourN, pv_kWh:pvKwh, th_kWh:thKwh, Tout_C:toutC, Tin_C:tinC });
     }
 
     const monthlyAll = aggregateMonthlyAll(timeSeries, BASE_YEAR);
