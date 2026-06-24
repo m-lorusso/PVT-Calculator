@@ -1,0 +1,42 @@
+=== COOLSHEET — QUICK CONTEXT FOR A NEW CHAT ===
+
+WHAT: CoolSheet, a PVT (photovoltaic-thermal) solar calculator for an Australian
+UNSW thesis. Plain HTML/CSS/JS, no build step. Estimates annual electrical +
+thermal energy, savings and payback.
+
+LOCAL FOLDER: C:\Users\MIKE-PC\Desktop\PVT-Calculator
+MAIN FILES: index.html, app.js (all logic), styles.css,
+            pvt-tmy-api/server.py (Python weather backend), validation/ (tests)
+LOCAL DEV: static server on port 8091 -> http://127.0.0.1:8091/index.html
+
+--- HOSTING (two separate deployments) ---
+1. Website (front-end) -> GitHub Pages
+   Repo:    https://github.com/coolsheet-pvt/coolsheet-pvt.github.io
+   Live:    https://coolsheet-pvt.github.io/
+   Auto-deploys on every push to main.
+2. Weather backend (pvt-tmy-api/server.py) -> Render
+   API:     https://pvt-tmy-api.onrender.com  (can take ~1 min to wake)
+   Redeploys only from the Render dashboard. NOTE: confirm Render is connected to
+   the NEW repo above (not the old m-lorusso one), or backend changes won't go live.
+
+--- PUSHING (remote already set to the new repo) ---
+   cd "C:\Users\MIKE-PC\Desktop\PVT-Calculator"
+   git pull --rebase origin main
+   git add -A
+   git commit -m "Describe the changes"
+   git push origin main
+   (Pushing updates the website automatically. DO NOT push to old m-lorusso/PVT-Calculator.)
+
+--- HARD RULES ---
+- DO NOT modify the thermal "Model A" (simple linear) or "Model B" (ISO 9806) —
+  another student's work. Read/test only.
+- The PV/irradiance "supply side" (geometry, transposition, PV electrical) is fine to change.
+- Azimuth convention: 0 deg = NORTH-facing, 180 = SOUTH. Default tilt 30, azimuth 0.
+
+--- GOTCHA ---
+After editing app.js/styles.css, hard-refresh the browser (Ctrl+Shift+R) — a plain
+reload keeps the cached old version.
+
+--- STATUS ---
+Supply-side validated vs pvlib (~0.1%). Industry/economics models tested + given
+Australian references. See validation/VALIDATION_RECORD.md. Current version: 11.8.

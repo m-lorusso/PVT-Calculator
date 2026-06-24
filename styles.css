@@ -4,7 +4,7 @@
 /* Inline loading spinner — inherits text colour (white on button, gold on status text) */
 .cs-spinner{display:inline-block;width:1em;height:1em;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:cs-spin 0.7s linear infinite;vertical-align:-0.15em;margin-right:7px;}
 @keyframes cs-spin{to{transform:rotate(360deg);}}
-html{overflow-x:hidden;}
+html{overflow-x:hidden;overflow-y:scroll;scrollbar-gutter:stable;}
 
 /* Custom scrollbar — matches the dark-blue header theme */
 ::-webkit-scrollbar{width:8px;height:8px;}
@@ -13,7 +13,7 @@ html{overflow-x:hidden;}
 ::-webkit-scrollbar-thumb:hover{background:#4a9fd4;}
 /* Firefox */
 html{scrollbar-width:thin;scrollbar-color:#2e6fa3 #0d1f30;}
-body{font-family:Arial,Helvetica,sans-serif;margin:18px;color:#111;padding-bottom:120px;background-color:#fff;background-image:linear-gradient(to bottom,#09131f 0px,#10253a 80px,#1a3a55 160px,#d6e4ef 420px,#eef3f7 520px,#fff 680px);background-repeat:no-repeat;background-size:100% 680px;overflow-y:scroll;overflow-x:hidden;}
+body{font-family:Arial,Helvetica,sans-serif;margin:18px;color:#111;padding-bottom:120px;background-color:#fff;background-image:linear-gradient(to bottom,#09131f 0px,#10253a 80px,#1a3a55 160px,#d6e4ef 420px,#eef3f7 520px,#fff 680px);background-repeat:no-repeat;background-size:100% 680px;overflow-y:visible;overflow-x:hidden;}
 .wrap{max-width:1070px;margin:0 auto;}
 h1{font-size:20px;margin:0 0 10px;}
 .brand-hero{margin:0 0 14px;padding:24px 20px;border:1px solid #17324b;border-radius:16px;background:linear-gradient(135deg,#09131f 0%,#10253a 48%,#194d74 100%);box-shadow:0 10px 28px rgba(10,28,45,0.18);}
