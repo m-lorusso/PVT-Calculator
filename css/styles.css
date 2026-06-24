@@ -331,6 +331,9 @@ body.testing-mode .kwater-label{display:inline;}
 .formula-details[open]>.formula-box{display:block;background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;margin:10px 12px 4px;color:#54461d;}
 .formula-details[open]>.advanced-grid{display:grid;background:#dceaf7;padding:10px 12px;}
 .formula-details[open] .secondary-action{display:inline-block;}
+/* Always-visible action buttons inside the mains override card (the .secondary-action
+   default is display:none, shown contextually — these belong on-screen permanently). */
+.mains-quickset .secondary-action,.mains-edit-actions .secondary-action{display:inline-block;}
 input:disabled{background:#eee;color:#666;cursor:not-allowed;}
 button:disabled{opacity:0.55;cursor:wait;transform:none;box-shadow:none;}
 .step-kicker{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1a5f9a;margin:0 0 4px;}

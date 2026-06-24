@@ -52,6 +52,8 @@ function resetExportActions(){
     pdfBtn.disabled = true;
     pdfBtn.textContent = "Generate PDF report";
   }
+  const sumBtn = document.getElementById("btnSummaryCsv");
+  if (sumBtn) sumBtn.style.display = "none";
 }
 
 function escapeHtml(value){
@@ -5370,7 +5372,7 @@ async function calcAnnualPVT(){
           <a class="mains-link" href="#" onclick="openHotelModelBasis(event)" title="Values and Australian (NABERS/SA Water) sources">Model basis &amp; sources</a>
         </div>
         ${buildProcessBreakdown(processRows, totalThermalDemandKWh)}
-        <p class="note" style="margin-top:6px;">Assumed specific thermal demand (kWh per occupied room-night): DHW 5.50, Kitchen 1.60, Laundry 1.20, Pool 0.80.</p>
+        <p class="note" style="margin-top:6px;">Assumed specific thermal demand (kWh per occupied room-night): DHW 4.50, Kitchen 1.60, Laundry 1.20, Pool 0.80.</p>
         ${buildHeatBalanceTable(thermalSectionTitle, demandMet, unmet, excess, solarFraction)}
         ${buildElecBalanceTable(`Total yearly electricity use (${HOTEL_ELECTRICAL_KWH_PER_UNIT} kWh/room-night benchmark)`, totalElecDemandKWh, elecMetByPv, elecUnmet, elecExcess, elecSolarFrac)}
         ${buildSavingsTable({ boilerEff, gridEmissionFactor, solarHeatUsedKWh: demandMet, solarElecUsedKWh: elecMetByPv, thermalFuelSavingsAud, electricalSavingsAud, exportSavingsAud, totalSavingsAud })}
@@ -5635,6 +5637,8 @@ async function calcAnnualPVT(){
       pdfBtn.disabled = false;
       pdfBtn.textContent = "Generate PDF report";
     }
+    const sumBtn = document.getElementById("btnSummaryCsv");
+    if (sumBtn) sumBtn.style.display = "inline-block";
 
   } catch(err){
     console.error(err);
@@ -5650,27 +5654,136 @@ async function calcAnnualPVT(){
 // ================================================================
 const INPUT_STORE_KEY = "pvtCalcInputs.v1";
 
+// Serialize every user-set input/select (tin is derived from weather, never user-set).
+function collectInputState(){
+  const data = {};
+  document.querySelectorAll("input[id], select[id]").forEach(el => {
+    if (el.id === "tin") return;
+    data[el.id] = (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value;
+  });
+  return data;
+}
+
+// Apply a previously serialized input state (from storage or a shared link).
+function applyInputState(data){
+  for (const [id, value] of Object.entries(data || {})){
+    const el = document.getElementById(id);
+    if (!el || id === "tin") continue;
+    if (el.type === "checkbox" || el.type === "radio") el.checked = !!value;
+    else el.value = value;
+  }
+}
+
 function saveInputsToStorage(){
   try {
-    const data = {};
-    document.querySelectorAll("input[id], select[id]").forEach(el => {
-      if (el.id === "tin") return; // derived from TMY weather, not user-set
-      data[el.id] = (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value;
-    });
-    localStorage.setItem(INPUT_STORE_KEY, JSON.stringify(data));
+    localStorage.setItem(INPUT_STORE_KEY, JSON.stringify(collectInputState()));
   } catch(_e){ /* private browsing or storage full — persistence is best-effort */ }
 }
 
 function restoreInputsFromStorage(){
   try {
-    const data = JSON.parse(localStorage.getItem(INPUT_STORE_KEY) || "{}");
-    for (const [id, value] of Object.entries(data)){
-      const el = document.getElementById(id);
-      if (!el || id === "tin") continue;
-      if (el.type === "checkbox" || el.type === "radio") el.checked = !!value;
-      else el.value = value;
-    }
+    applyInputState(JSON.parse(localStorage.getItem(INPUT_STORE_KEY) || "{}"));
   } catch(_e){}
+}
+
+// ================================================================
+//  SHAREABLE SCENARIO LINK — encode all inputs into the URL hash
+// ================================================================
+// Build a URL that reproduces the current inputs (address, area, tilt,
+// model, economics, custom monthly mains, …) — UTF-8-safe base64 in #s=.
+function buildShareUrl(){
+  const json = JSON.stringify(collectInputState());
+  const b64  = btoa(unescape(encodeURIComponent(json)));
+  return `${location.origin}${location.pathname}#s=${b64}`;
+}
+
+// On load: if the URL carries a shared scenario, apply it (takes precedence
+// over localStorage). Returns true if a scenario was applied.
+function applySharedScenarioFromUrl(){
+  const m = (location.hash || "").match(/[#&]s=([^&]+)/);
+  if (!m) return false;
+  try {
+    const json = decodeURIComponent(escape(atob(m[1])));
+    applyInputState(JSON.parse(json));
+    return true;
+  } catch(e){
+    console.warn("Could not parse shared scenario from URL:", e);
+    return false;
+  }
+}
+
+async function copyShareLink(){
+  const url = buildShareUrl();
+  const btn = document.getElementById("btnShareLink");
+  const flash = (msg) => {
+    if (!btn) return;
+    const original = btn.textContent;
+    btn.textContent = msg;
+    setTimeout(() => { btn.textContent = original; }, 1800);
+  };
+  try {
+    await navigator.clipboard.writeText(url);
+    flash("✓ Link copied");
+  } catch(_e){
+    window.prompt("Copy this shareable link:", url); // clipboard blocked (e.g. file://)
+  }
+}
+
+// ================================================================
+//  SUMMARY CSV — annual energy + economics, for the thesis
+// ================================================================
+function buildSummaryCsv(){
+  const esc = (v) => {
+    const s = String(v == null ? "" : v).replace(/\s+/g, " ").trim();
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [];
+  const push = (...cells) => lines.push(cells.map(esc).join(","));
+
+  push("CoolSheet PVT Calculator — results summary");
+  push("Location", CURRENT_LOC?.name || "N/A");
+  push("Collector / PV area (m2)", document.getElementById("area")?.value || "");
+  push("Thermal model", getCheckedThermalModelLabel());
+  push("Industry", getSelectedOptionText("industrySelect") || "None");
+  push("Generated", new Date().toLocaleString());
+  push("");
+
+  const kpis = collectAnnualReportMetrics();
+  if (kpis.length){
+    push("Annual summary", "value", "note");
+    kpis.forEach(k => push(k.label, k.value, k.note));
+    push("");
+  }
+
+  // Every result/economics table shown in the annual output panel.
+  document.querySelectorAll("#annualOutput table").forEach(tbl => {
+    let wrote = false;
+    tbl.querySelectorAll("tr").forEach(tr => {
+      const cells = Array.from(tr.querySelectorAll("th,td")).map(td => compactReportText(td));
+      if (cells.some(Boolean)){ push(...cells); wrote = true; }
+    });
+    if (wrote) push("");
+  });
+
+  return lines.join("\n").replace(/\n+$/,"") + "\n";
+}
+
+function downloadSummaryCsv(){
+  const root = document.getElementById("annualOutput");
+  if (!root || !root.textContent.trim() || root.textContent.trim().startsWith("Ready")){
+    alert("Run a calculation first, then download the summary.");
+    return;
+  }
+  const blob = new Blob([buildSummaryCsv()], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const safeName = (CURRENT_LOC?.name || "location").toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  a.href = url;
+  a.download = `PVT_summary_${safeName}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 document.addEventListener("change", ev => {
@@ -5681,6 +5794,16 @@ document.addEventListener("change", ev => {
 //  EVENT LISTENERS
 // ================================================================
 restoreInputsFromStorage();
+// A shared link (#s=…) overrides stored inputs, then is persisted so it survives reloads.
+const _sharedScenarioApplied = applySharedScenarioFromUrl();
+if (_sharedScenarioApplied){
+  saveInputsToStorage();
+  const shareStatus = document.getElementById("shareStatus");
+  if (shareStatus){
+    shareStatus.textContent = "Shared scenario loaded — press “Geocode & Load TMY”, then Calculate.";
+    shareStatus.style.display = "inline";
+  }
+}
 // Sync UI that depends on restored values: thermal-model panel + testing mode.
 {
   const modelBSelected = document.getElementById("modelB")?.checked;
@@ -5688,6 +5811,8 @@ restoreInputsFromStorage();
   document.getElementById("modelBParams").style.display = modelBSelected ? "block" : "none";
 }
 onTestingModeChange();
+document.getElementById("btnShareLink")?.addEventListener("click", copyShareLink);
+document.getElementById("btnSummaryCsv")?.addEventListener("click", downloadSummaryCsv);
 document.querySelectorAll('input[name="thermalModel"]').forEach(radio => {
   radio.addEventListener('change', function(){
     const isA = this.value === 'A';

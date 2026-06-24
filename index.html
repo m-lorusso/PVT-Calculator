@@ -6,10 +6,10 @@
   <title>Annual PVT Calculator</title>
   <meta name="description" content="Estimates annual energy output, savings and payback of photovoltaic-thermal (PVT) solar systems for Australian commercial sites." />
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <link rel="stylesheet" href="styles.css?v=12.1" />
+  <link rel="stylesheet" href="css/styles.css?v=12.2" />
   <!-- Chart.js v4.5.1 vendored locally (assets/vendor/) so charts work offline / on flaky wifi. -->
   <script src="assets/vendor/chart.umd.min.js"></script>
-  <script src="bc_aus_zone_constants.js"></script>
+  <script src="js/bc_aus_zone_constants.js"></script>
 </head>
 
 <body>
@@ -421,7 +421,10 @@
         <button id="btnAnnual" type="button">Calculate Annual PV + Thermal</button>
         <span id="calcHint" style="display:none;margin-left:10px;font-size:12px;color:#666;line-height:2.5;">Calculating 8,760 hourly timesteps&hellip;</span>
         <a id="downloadLink" href="#" target="_blank" rel="noopener">Download hourly details CSV</a>
+        <button id="btnSummaryCsv" type="button" class="secondary-action" style="display:none;">Download summary CSV</button>
         <button id="btnGeneratePdf" type="button" class="secondary-action" disabled>Generate PDF report</button>
+        <button id="btnShareLink" type="button" class="secondary-action" style="display:inline-block;">Copy share link</button>
+        <span id="shareStatus" class="note" style="display:none;margin-left:8px;"></span>
       </div>
 
     </div>
@@ -525,6 +528,6 @@
 
 </div>
 
-<script src="app.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
