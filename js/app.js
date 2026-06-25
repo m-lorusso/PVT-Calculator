@@ -4754,6 +4754,7 @@ async function calcAnnualPVT(){
         th_kWh,
         Tin_C: Tin,
         Tout_C: Tout_C === "" ? 0 : Tout_C,
+        ta_C: r.ta,
         pvPanel_C: pvPanelTempC,
         pvtPanel_C: pvtPanelTempC,
         daytimeTempSample
@@ -4819,7 +4820,19 @@ async function calcAnnualPVT(){
     const daytimePvtPanelAvg = avgOf(daytimeRows, "pvtPanel_C");
     const daytimeTinAvg = avgOf(daytimeRows, "Tin_C");
     const daytimeToutAvg = avgOf(daytimeRows.filter(r => r.Tout_C > 0), "Tout_C");
+    const daytimeAmbientAvg = avgOf(daytimeRows, "ta_C");
     const daytimeCoolingAvg = (isFiniteNumber(daytimePvPanelAvg) && isFiniteNumber(daytimePvtPanelAvg)) ? daytimePvPanelAvg - daytimePvtPanelAvg : null;
+    // Below ~20 C the delivered water is marginal for most heating duties; slowing the
+    // coolant flow raises outlet temperature (with a small thermal-energy trade-off).
+    const LOW_OUTLET_THRESHOLD_C = 20;
+    const outletTooLow = isFiniteNumber(daytimeToutAvg) && daytimeToutAvg < LOW_OUTLET_THRESHOLD_C;
+    const flowSuggestionHtml = outletTooLow ? `
+      <div class="flow-suggestion">
+        <b>❄ Winter tip:</b> average daytime outlet temperature is ${daytimeToutAvg.toFixed(1)}&deg;C
+        &mdash; below the ${LOW_OUTLET_THRESHOLD_C}&deg;C useful threshold. Try lowering the
+        <b>flow rate</b> (currently ${flowRate} L/s/m&sup2;): slower flow raises outlet temperature,
+        making the heat more useful for winter water heating, at the cost of a small drop in total thermal energy.
+      </div>` : "";
     const tempModelText = pvTempCorrEnable
       ? `NOCT ${pvNoctC.toFixed(1)}&deg;C, &gamma;=${(pvTempCoeffPerC*100).toFixed(2)}%/&deg;C, STC reference ${PV_STC_CELL_TEMP_C}&deg;C`
       : `Temperature correction disabled; PV and PVT electricity use constant &eta;<sub>STC</sub>`;
@@ -4867,12 +4880,18 @@ async function calcAnnualPVT(){
           <strong>${fmtE(totalEnergy,1,'kWh')}</strong>
           <small>Electrical + thermal combined</small>
         </div>
+        <div class="annual-summary-item${outletTooLow ? ' annual-outlet-low' : ''}">
+          <span>Avg daytime outlet temp</span>
+          <strong>${fmtE(daytimeToutAvg,1,'&deg;C')}</strong>
+          <small>Avg daytime air ${fmtE(daytimeAmbientAvg,1,'&deg;C')}${outletTooLow ? ' &middot; below 20&deg;C' : ''}</small>
+        </div>
         <div class="annual-summary-item annual-finance ${netAnnualBenefit>=0?'':'negative'}">
           <span>PVT supply value</span>
           <strong>${fmtC(netAnnualBenefit)} /yr</strong>
           <small>Upper-bound annual value (100% utilisation)</small>
         </div>
       </div>
+      ${flowSuggestionHtml}
       <div class="annual-actions">
         <button type="button" class="detail-toggle" onclick="toggleAnnualDetails(this)" aria-expanded="false">Show detailed results</button>
         <a class="validation-link" href="${pvgisValidation.url}" target="_blank" rel="noopener">Open PVGIS validation result</a>
@@ -4895,6 +4914,7 @@ async function calcAnnualPVT(){
       <table class="result-table">
         <tr><td><b>PV/PVT electrical model</b></td><td class="num">${tempModelText}</td></tr>
         <tr><td><b>Daytime window</b></td><td class="num">10:00-17:00, G &gt; ${PV_DAYTIME_TEMP_MIN_IRRADIANCE} W/m&sup2;</td></tr>
+        <tr><td><b>Average daytime air temperature</b></td><td class="num">${fmtE(daytimeAmbientAvg,1,'&deg;C')}</td></tr>
         <tr><td><b>Daytime PV-only panel temperature</b></td><td class="num">${fmtE(daytimePvPanelAvg,1,'&deg;C')}</td></tr>
         <tr><td><b>Daytime PVT panel temperature</b></td><td class="num">${fmtE(daytimePvtPanelAvg,1,'&deg;C')}</td></tr>
         <tr><td><b>Average PVT cooling</b></td><td class="num">${fmtE(daytimeCoolingAvg,1,'&deg;C')}</td></tr>

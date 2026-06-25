@@ -86,6 +86,11 @@ body.testing-mode .kwater-label{display:inline;}
 .annual-summary-item.annual-tempcorr{border-color:rgba(255,206,120,0.5);background:rgba(255,193,90,0.15);}
 .annual-summary-item.annual-tempcorr small{color:#ffe1a8;}
 .annual-summary-item.annual-finance.negative{border-color:rgba(255,255,255,0.24);background:rgba(255,255,255,0.12);}
+/* Cool-blue highlight + winter tip when daytime outlet temperature is below 20 C */
+.annual-summary-item.annual-outlet-low{border-color:rgba(120,180,255,0.55);background:rgba(90,150,230,0.18);}
+.annual-summary-item.annual-outlet-low small{color:#cfe2ff;}
+.flow-suggestion{margin:2px 0 12px;padding:11px 14px;border:1px solid rgba(120,180,255,0.5);background:rgba(90,150,230,0.18);border-radius:10px;color:#eaf2ff;font-size:13px;line-height:1.45;}
+.flow-suggestion b{color:#fff;}
 .annual-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.22);}
 .annual-actions-subtle{margin-top:6px;padding-top:0;border-top:0;}
 .output-card-annual .annual-actions .note{color:rgba(255,255,255,0.86);}
