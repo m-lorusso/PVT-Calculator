@@ -7,8 +7,8 @@ photovoltaic-thermal (PVT) solar systems for Australian commercial sites.
 
 - Fetches live TMY weather data via PVGIS
 - Simulates 8,760 hourly timesteps (full year)
-- Models thermal demand for dairy, brewery, hotel and aquatic centre industries
-- Uses BC-Aus — a regionally refitted mains water temperature model 
+- Models thermal demand for dairy, brewery, hotel, aquatic centre and commercial laundry industries
+- Uses BC-Aus, a regionally refitted mains water temperature model
   calibrated to AS/NZS 4234 Australian climate zones
 
 ## Files
@@ -42,6 +42,43 @@ python3 -m http.server 8080
 If the local API is not running, the frontend automatically falls back to the
 hosted API at pvt-tmy-api.onrender.com (first request may take ~1 minute while
 it wakes up).
+
+## Validation commands
+
+The repeatable local validation commands are defined in `package.json`.
+
+```
+npm install
+npm test
+npm run test:geometry
+npm run test:industry
+npm run test:economics
+npm run test:solar-e2e
+npm run test:golden-reference
+npm run test:pvt-models
+npm run test:weather-fixtures
+npm run test:backend-solarhour
+npm run test:no-nan
+npm run test:export-share
+npm run test:browser
+npm run test:links
+```
+
+`npm test` runs the offline core checks. `npm run test:links` performs live URL
+checks and needs network access. `npm run test:browser` requires Playwright's
+Chromium binary once:
+
+```
+npx playwright install chromium
+```
+
+Locked weather fixtures can be intentionally refreshed with:
+
+```
+npm run fixtures:weather
+```
+
+Fixture refresh uses live PVGIS data and should be reviewed before acceptance.
 
 ### Email reports
 

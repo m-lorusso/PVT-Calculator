@@ -41,6 +41,7 @@ function setIndustryOutput(html){
 }
 
 function resetExportActions(){
+  CURRENT_CALC_RESULT = null;
   const csvLink = document.getElementById("downloadLink");
   if (csvLink){
     csvLink.style.display = "none";
@@ -176,7 +177,89 @@ function compactReportText(el){
   return String(el?.textContent || "").replace(/\s+/g, " ").trim();
 }
 
+function formatExportNumber(value, decimals=1){
+  if (!isFiniteNumber(value)) return "";
+  return Number(value).toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
+function formatExportValue(item){
+  if (!item) return "";
+  if (item.text != null) return String(item.text);
+  if (!isFiniteNumber(item.value)) return item.fallback || "\u2014";
+  const decimals = Number.isInteger(item.decimals) ? item.decimals : 1;
+  const unit = item.unit ? ` ${item.unit}` : "";
+  return `${item.prefix || ""}${formatExportNumber(item.value, decimals)}${unit}${item.suffix || ""}`;
+}
+
+function exportMetric(label, value, unit="", decimals=1, note="", extra={}){
+  return { label, value, unit, decimals, note, ...extra };
+}
+
+function exportMetricText(label, text, note=""){
+  return { label, text, note };
+}
+
+function buildWeatherExportMetadata(){
+  const met = Array.isArray(CURRENT_MET) ? CURRENT_MET : [];
+  const finite = key => met.map(r => r?.[key]).filter(isFiniteNumber);
+  const sum = key => finite(key).reduce((a,b)=>a+b,0);
+  const solarHourCount = met.filter(r => isFiniteNumber(r?.solarHour)).length;
+  return {
+    records: met.length,
+    timezone: CURRENT_TZ ? getTimezoneDisplay(CURRENT_TZ) : null,
+    hasSolarHour: met.length > 0 && solarHourCount === met.length,
+    solarHourRecords: solarHourCount,
+    annualDniKWhM2: sum("dni") / 1000,
+    annualDhiKWhM2: sum("dhi") / 1000,
+    annualGhiKWhM2: sum("ghi") / 1000,
+    annualAmbientAvgC: finite("ta").length
+      ? finite("ta").reduce((a,b)=>a+b,0) / finite("ta").length
+      : null
+  };
+}
+
+function buildIndustryExportSummary(performanceOpts, energyOpts){
+  const savingsAud = isFiniteNumber(performanceOpts.savingsAud) ? performanceOpts.savingsAud : 0;
+  const heatCoverage = isFiniteNumber(performanceOpts.solarHeatFraction) ? performanceOpts.solarHeatFraction : null;
+  const elecCoverage = isFiniteNumber(performanceOpts.solarElecFraction) ? performanceOpts.solarElecFraction : null;
+  const areaText = isFiniteNumber(performanceOpts.areaM2)
+    ? `${Number(performanceOpts.areaM2).toLocaleString(undefined, { maximumFractionDigits: 1 })} m2`
+    : "\u2014";
+  const energyValue = value => isFiniteNumber(value) ? `${formatSummaryWhole(value)} kWh/yr` : "\u2014";
+  return {
+    headline: `You save $${formatSummaryWhole(savingsAud)} AUD/yr with ${formatSummaryPercent(heatCoverage)} solar heat coverage`,
+    subhead: `Based on ${areaText} PVT collector area at ${performanceOpts.locationName || "selected location"}`,
+    metrics: [
+      exportMetricText("Solar Electricity", formatSummaryPercent(elecCoverage), "Share of site electricity covered by PV."),
+      exportMetricText("Solar Heat", formatSummaryPercent(heatCoverage), "Share of process heat covered by PVT heat."),
+      exportMetricText("Yearly Savings", `$${formatSummaryWhole(savingsAud)} /yr`, "Thermal fuel plus electricity value counted for this industry each year."),
+      exportMetricText("Unused heat energy", energyValue(performanceOpts.unusedHeatKWh), "PVT heat above hourly process demand."),
+      exportMetricText("Unused electrical energy", energyValue(performanceOpts.unusedElectricityKWh), "PV electricity above hourly site demand.")
+    ],
+    energy: [
+      exportMetricText("Electric demand consumed", energyValue(energyOpts.electricDemandKWh), "Total electricity required by the site."),
+      exportMetricText("Solar electricity used", energyValue(energyOpts.solarElectricUsedKWh), "PV electricity consumed on site."),
+      exportMetricText("Grid electricity needed", energyValue(energyOpts.gridElectricityNeededKWh), "Remaining electricity imported from grid."),
+      exportMetricText("PV exported", energyValue(energyOpts.exportedElectricityKWh), "PV electricity above hourly site demand, exported to the grid."),
+      exportMetricText("Heat demand consumed", energyValue(energyOpts.thermalDemandKWh), "Total process heat required."),
+      exportMetricText("Solar heat used", energyValue(energyOpts.solarHeatUsedKWh), "Demand supplied directly by PVT heat."),
+      exportMetricText("Backup heat needed", energyValue(energyOpts.backupHeatNeededKWh), "Remaining heat from boiler or backup."),
+      exportMetricText("Solar heat unused", energyValue(energyOpts.unusedHeatKWh), energyOpts.unusedHeatNote || "PVT heat above hourly process demand.")
+    ]
+  };
+}
+
 function collectAnnualReportMetrics(){
+  if (CURRENT_CALC_RESULT?.annualMetrics?.length){
+    return CURRENT_CALC_RESULT.annualMetrics.map(item => ({
+      label: item.label,
+      value: formatExportValue(item),
+      note: item.note || ""
+    }));
+  }
   const root = document.getElementById("annualOutput");
   if (!root || !root.textContent.trim() || root.textContent.trim().startsWith("Ready")) return [];
   return Array.from(root.querySelectorAll(".annual-summary-item")).map(card => ({
@@ -187,6 +270,23 @@ function collectAnnualReportMetrics(){
 }
 
 function collectIndustryReportSummary(){
+  if (CURRENT_CALC_RESULT?.industrySummary){
+    const summary = CURRENT_CALC_RESULT.industrySummary;
+    return {
+      headline: summary.headline || "",
+      subhead: summary.subhead || "",
+      metrics: (summary.metrics || []).map(item => ({
+        label: item.label,
+        value: formatExportValue(item),
+        note: item.note || ""
+      })),
+      energy: (summary.energy || []).map(item => ({
+        label: item.label,
+        value: formatExportValue(item),
+        note: item.note || ""
+      }))
+    };
+  }
   const root = document.getElementById("industryOutput");
   if (!root || !root.textContent.trim()) return null;
 
@@ -972,10 +1072,11 @@ function normalizeWeatherRecords(raw){
     const solarHour = +(r.solarHour ?? r.solarhour ?? r.SolarHour ?? r.SOLARHOUR);
     const dni   = +(r.DNI ?? r.dni ?? r.Dni);
     const dhi   = +(r.DHI ?? r.dhi ?? r.Dhi);
+    const ghi   = +(r.GHI ?? r.ghi ?? r.Ghi);
     const ta    = +(r.Ta  ?? r.ta  ?? r.TA);
     const vwind = +(r.Vwind ?? r.vwind ?? r.VWIND ?? r.VWind);
     if (Number.isFinite(hourN) && hourN >= 1 && hourN <= 24) hourN = hourN - 1;
-    out.push({ dayN, hourN, solarHour, dni, dhi, ta, vwind });
+    out.push({ dayN, hourN, solarHour, dni, dhi, ghi, ta, vwind });
   }
   return out;
 }
@@ -996,6 +1097,8 @@ let CURRENT_MAINS = null;  // effective mains used everywhere {annualAvgC, minC,
 let CURRENT_MAINS_MODEL = null;  // raw BC-Aus model output (before any custom monthly overrides)
 let CURRENT_PROCESS_DETAIL = null;
 let CURRENT_EVAN_VIEW = null;
+let CURRENT_CALC_RESULT = null;
+let LAST_SHARED_SCENARIO_METADATA = null;
 let evanPrimaryChartInstance = null;
 
 // ================================================================
@@ -1237,9 +1340,9 @@ const INDUSTRY_PROCESSES = {
     pool_heating:        { label: "Pool heating (optional)" }
   },
   commercial_laundry: {
-    wash_water:     { label: "Wash water heating" },
-    rinse_preheat:  { label: "Rinse water preheat" },
-    boiler_preheat: { label: "Steam/boiler preheat" }
+    wash_water:     { label: "Wash hot-water heating" },
+    rinse_preheat:  { label: "Warm rinse / preheat" },
+    boiler_preheat: { label: "Hot-water system losses (user-entered)" }
   }
 };
 
@@ -1405,6 +1508,33 @@ const HOTEL_PROCESS_SHORT_LABELS = {
   laundry: "Laundry", pool_heating: "Pool"
 };
 const HOTEL_PROCESS_STACK_ORDER = ["domestic_hot_water","kitchen_dishwashing","laundry","pool_heating"];
+
+const LAUNDRY_DEFAULTS = {
+  kgPerDay: 1500,
+  operatingDaysPerWeek: 6,
+  washTempC: 60,
+  waterUseLPerKg: 10,
+  hotWaterFraction: 0.65,
+  warmRinseFraction: 0.20,
+  warmRinseTempC: 35,
+  systemLossFraction: 0,
+  startHour: 8,
+  endHour: 17
+};
+
+const LAUNDRY_PROCESS_COLORS = {
+  wash_water: "#2e7d32",
+  rinse_preheat: "#0288d1",
+  boiler_preheat: "#8d6e63"
+};
+
+const LAUNDRY_PROCESS_SHORT_LABELS = {
+  wash_water: "Wash hot water",
+  rinse_preheat: "Warm rinse",
+  boiler_preheat: "System losses"
+};
+
+const LAUNDRY_PROCESS_STACK_ORDER = ["wash_water","rinse_preheat","boiler_preheat"];
 
 const AQUATIC_PROCESS_PARAMS = {
   indoor_pool: {
@@ -2016,6 +2146,98 @@ function calcBreweryHourlyDemand(throughput_L, profileType, selectedKeys, met, m
   return { thermalHourly, electricHourly, processByHour };
 }
 
+function getCommercialLaundryInputs(){
+  return {
+    kgPerDay: Math.max(0, getInputNumber("laundryKgPerDay", LAUNDRY_DEFAULTS.kgPerDay)),
+    operatingDaysPerWeek: clamp(getInputNumber("laundryOperatingDaysPerWeek", LAUNDRY_DEFAULTS.operatingDaysPerWeek), 0, 7),
+    washTempC: clamp(getInputNumber("laundryWashTempC", LAUNDRY_DEFAULTS.washTempC), 20, 95),
+    waterUseLPerKg: Math.max(0, getInputNumber("laundryWaterUseLPerKg", LAUNDRY_DEFAULTS.waterUseLPerKg)),
+    hotWaterFraction: clamp(getInputNumber("laundryHotWaterFraction", LAUNDRY_DEFAULTS.hotWaterFraction), 0, 1),
+    warmRinseFraction: clamp(getInputNumber("laundryWarmRinseFraction", LAUNDRY_DEFAULTS.warmRinseFraction), 0, 1),
+    warmRinseTempC: clamp(getInputNumber("laundryWarmRinseTempC", LAUNDRY_DEFAULTS.warmRinseTempC), 15, 60),
+    systemLossFraction: clamp(getInputNumber("laundrySystemLossFraction", LAUNDRY_DEFAULTS.systemLossFraction), 0, 1)
+  };
+}
+
+function laundryOperatingDayWeight(dayN, operatingDaysPerWeek){
+  const days = clamp(operatingDaysPerWeek, 0, 7);
+  const fullDays = Math.floor(days);
+  const partialDay = days - fullDays;
+  const dayIndex = ((Math.floor(dayN || 1) - 1) % 7 + 7) % 7;
+  if (dayIndex < fullDays) return 1;
+  if (partialDay > 1e-9 && dayIndex === fullDays) return partialDay;
+  return 0;
+}
+
+function calcCommercialLaundryHourlyDemand(opts){
+  const selectedKeys = Array.isArray(opts.selectedKeys) ? opts.selectedKeys : [];
+  const met = Array.isArray(opts.met) ? opts.met : [];
+  const mains = opts.mains || {};
+  const kgPerDay = Math.max(0, opts.kgPerDay || 0);
+  const operatingDaysPerWeek = clamp(opts.operatingDaysPerWeek ?? LAUNDRY_DEFAULTS.operatingDaysPerWeek, 0, 7);
+  const annualKg = kgPerDay * operatingDaysPerWeek * 52;
+  const waterUseLPerKg = Math.max(0, opts.waterUseLPerKg || 0);
+  const hotWaterFraction = clamp(opts.hotWaterFraction ?? 0, 0, 1);
+  const warmRinseFraction = clamp(opts.warmRinseFraction ?? 0, 0, 1);
+  const washTempC = clamp(opts.washTempC ?? LAUNDRY_DEFAULTS.washTempC, 20, 95);
+  const warmRinseTempC = clamp(opts.warmRinseTempC ?? LAUNDRY_DEFAULTS.warmRinseTempC, 15, 60);
+  const systemLossFraction = clamp(opts.systemLossFraction ?? 0, 0, 1);
+
+  const scheduleWeights = met.map(r => {
+    const h = Math.floor(r?.hourN ?? 0);
+    const inShift = h >= LAUNDRY_DEFAULTS.startHour && h < LAUNDRY_DEFAULTS.endHour;
+    return inShift ? laundryOperatingDayWeight(r?.dayN, operatingDaysPerWeek) : 0;
+  });
+  const scheduleWeightSum = scheduleWeights.reduce((a,b)=>a+b,0);
+
+  const thermalHourly = [];
+  const electricHourly = [];
+  const processByHour = {};
+  for (const key of selectedKeys) processByHour[key] = [];
+
+  for (let i = 0; i < met.length; i++){
+    const r = met[i];
+    const Tm = (mains?.byDay?.[r.dayN]) ?? (mains?.annualAvgC ?? 15);
+    const kgThisHour = scheduleWeightSum > 0 ? annualKg * (scheduleWeights[i] / scheduleWeightSum) : 0;
+    const washLitres = kgThisHour * waterUseLPerKg * hotWaterFraction;
+    const rinseLitres = kgThisHour * waterUseLPerKg * warmRinseFraction;
+    const washHeat = washLitres * WATER_CP_KWH_PER_KG_C * Math.max(0, washTempC - Tm);
+    const rinseHeat = rinseLitres * WATER_CP_KWH_PER_KG_C * Math.max(0, warmRinseTempC - Tm);
+    const selectedHeatForLoss =
+      (selectedKeys.includes("wash_water") ? washHeat : 0) +
+      (selectedKeys.includes("rinse_preheat") ? rinseHeat : 0);
+    const lossHeat = selectedHeatForLoss * systemLossFraction;
+    const values = {
+      wash_water: washHeat,
+      rinse_preheat: rinseHeat,
+      boiler_preheat: lossHeat
+    };
+    let total = 0;
+    for (const key of selectedKeys){
+      const v = Math.max(0, values[key] || 0);
+      processByHour[key].push(v);
+      total += v;
+    }
+    thermalHourly.push(total);
+    electricHourly.push(0);
+  }
+
+  const processAnnuals = {};
+  for (const key of selectedKeys){
+    processAnnuals[key] = (processByHour[key] || []).reduce((s,v)=>s+(v||0),0);
+  }
+
+  return {
+    thermalHourly,
+    electricHourly,
+    processByHour,
+    processAnnuals,
+    annualKg,
+    scheduleWeightSum,
+    scope: "Hot-water washing demand only; drying and whole-site electricity are not included."
+  };
+}
+
 function buildDairyDailyShapeChart(processByHour, met, activeKeys, profileLabel){
   if (!activeKeys.length){
     return `<div class="note">No dairy thermal processes selected.</div>`;
@@ -2496,6 +2718,41 @@ function buildHotelModelBasisHtml(){
     <p class="note" style="margin:10px 0 0;">Note: Australian hotel benchmarking (NABERS) reports whole-of-building energy/water intensity rather than per-process kWh, so the domestic-hot-water figure is set to the SA Water / NABERS-implied ~3 kWh per guest-night (about 4.5 kWh per room-night at typical occupancy). ${src("NABERS Hotels (rules v4.3)", nabersRules)}</p>`;
 }
 
+function buildLaundryModelBasisHtml(){
+  const welsHref = "https://www.waterrating.gov.au/";
+  const energyRatingHref = "https://www.energyrating.gov.au/";
+  const src = (label, href) => `<a href="${href}" target="_blank" rel="noopener">${label}</a>`;
+  const D = LAUNDRY_DEFAULTS;
+
+  return `
+    <div class="panel" style="background:#fff;margin-bottom:10px;">
+      <p style="margin:0 0 8px 0;"><b>Quick summary</b></p>
+      <p style="margin:0 0 6px 0;">Commercial laundry demand is modeled as <b>hot-water washing demand only</b>. It does not include tumble drying, ironing, steam finishing, motors, ventilation, or whole-site electricity unless those are added as separate measured site loads.</p>
+      <p style="margin:0;">Australian sources give appliance water and energy labels through WELS and Energy Rating, but public Australian commercial-laundry process benchmarks are limited. Therefore the model exposes water use, hot-water fraction, wash temperature, and operating days as editable engineering assumptions rather than hidden constants. ${src("WELS", welsHref)} ${src("Energy Rating", energyRatingHref)}</p>
+    </div>
+    <h4 style="margin:0 0 8px 0;">How it works</h4>
+    <div class="panel" style="background:#fff;margin-bottom:10px;">
+      <p style="margin:0 0 6px 0;">1. Annual laundry mass = kg/day x operating days/week x 52.</p>
+      <p style="margin:0 0 6px 0;">2. Annual mass is distributed over active operating days and a daytime shift (${String(D.startHour).padStart(2,"0")}:00-${String(D.endHour).padStart(2,"0")}:00).</p>
+      <p style="margin:0 0 6px 0;">3. Wash and optional warm-rinse heat use the loaded local mains-water temperature.</p>
+      <p style="margin:0 0 6px 0;"><code>Q_wash = kg_h x L/kg x hotFraction x 4.184/3600 x max(0, T_wash - T_mains)</code></p>
+      <p style="margin:0 0 6px 0;"><code>Q_rinse = kg_h x L/kg x warmRinseFraction x 4.184/3600 x max(0, T_rinse - T_mains)</code></p>
+      <p style="margin:0;"><code>SystemLoss = (Q_wash + Q_rinse) x userLossFraction</code>. The default loss fraction is 0 until a defensible site value is available.</p>
+    </div>
+    <h4 style="margin:0 0 8px 0;">Editable defaults</h4>
+    <table class="method-table">
+      <tr><th>Item</th><th>Default</th><th>Basis</th></tr>
+      <tr><td>Daily processed laundry</td><td>${D.kgPerDay.toLocaleString()} kg/day</td><td>Scenario input, not a national benchmark.</td></tr>
+      <tr><td>Operating days</td><td>${D.operatingDaysPerWeek} days/week</td><td>Scenario input.</td></tr>
+      <tr><td>Wash temperature</td><td>${D.washTempC} &deg;C</td><td>Editable hot-water washing target.</td></tr>
+      <tr><td>Total wash water</td><td>${D.waterUseLPerKg} L/kg</td><td>Engineering assumption; replace with WELS/commercial washer or metered site value where available. ${src("WELS", welsHref)}</td></tr>
+      <tr><td>Hot-water fraction</td><td>${D.hotWaterFraction.toFixed(2)}</td><td>Engineering assumption; exposed for sensitivity analysis.</td></tr>
+      <tr><td>Warm-rinse fraction</td><td>${D.warmRinseFraction.toFixed(2)} at ${D.warmRinseTempC} &deg;C</td><td>Optional sensitivity term; can be set to 0.</td></tr>
+      <tr><td>System losses</td><td>${D.systemLossFraction.toFixed(2)}</td><td>Default zero to avoid silently inventing an unsupported loss allowance.</td></tr>
+    </table>
+    <p class="note" style="margin:10px 0 0;">For thesis validation, commercial laundry annual heat is checked against the hand calculation Q = m c_p Delta T using local mains temperature. Use measured laundry kg/day, machine water L/kg, and inlet/outlet temperatures for site-specific results.</p>`;
+}
+
 function buildDairyWeightingGraphHtml(){
   const series = [
     { label:"Fatty film rinse", color:"#1976d2", values:_normW(DAIRY_PROCESS_PARAMS.fatty_film_rinse.weights24).map(v => v * 100) },
@@ -2675,6 +2932,15 @@ function openHotelModelBasis(ev){
   if (ev) ev.preventDefault();
   document.getElementById("mainsChartTitle").textContent = "Hotel demand model basis";
   document.getElementById("mainsChartBody").innerHTML = buildHotelModelBasisHtml();
+  const modal = document.getElementById("mainsChartModal");
+  modal.style.display = "flex";
+  modal.setAttribute("aria-hidden","false");
+}
+
+function openLaundryModelBasis(ev){
+  if (ev) ev.preventDefault();
+  document.getElementById("mainsChartTitle").textContent = "Commercial laundry demand model basis";
+  document.getElementById("mainsChartBody").innerHTML = buildLaundryModelBasisHtml();
   const modal = document.getElementById("mainsChartModal");
   modal.style.display = "flex";
   modal.setAttribute("aria-hidden","false");
@@ -4052,6 +4318,13 @@ function updateProfileTypeRules(industryKey){
     monFriOption.style.color = "#666";
     note.style.display = "none";
     note.textContent = "";
+  } else if (industryKey === "commercial_laundry"){
+    profileType.value = "continuous";
+    monFriOption.disabled = true;
+    monFriOption.textContent = `${strikeText("5 days/week (Mon-Fri)")} (use laundry operating-days input)`;
+    monFriOption.style.color = "#666";
+    note.style.display = "block";
+    note.textContent = "Commercial laundry scheduling uses kg/day, operating days/week, and a daytime shift window.";
   }
 }
 
@@ -4062,6 +4335,7 @@ function syncIndustrySelectionUI(industryKey, resetThroughput=false){
   const inp = document.getElementById("throughputInput");
   const hotelPanel = document.getElementById("hotelInputsPanel");
   const aquaticPanel = document.getElementById("aquaticInputsPanel");
+  const laundryPanel = document.getElementById("laundryInputsPanel");
 
   if (hotelPanel){
     if (industryKey === "hotel"){ revealPanel(hotelPanel, "block", 100); }
@@ -4071,9 +4345,13 @@ function syncIndustrySelectionUI(industryKey, resetThroughput=false){
     if (industryKey === "aquatic_centres"){ revealPanel(aquaticPanel, "block", 100); }
     else { aquaticPanel.style.display = "none"; }
   }
+  if (laundryPanel){
+    if (industryKey === "commercial_laundry"){ revealPanel(laundryPanel, "block", 100); }
+    else { laundryPanel.style.display = "none"; }
+  }
 
   if (ui){
-    if (industryKey === "hotel" || industryKey === "aquatic_centres"){
+    if (industryKey === "hotel" || industryKey === "aquatic_centres" || industryKey === "commercial_laundry"){
       lbl.style.display = "none";
       inp.style.display = "none";
     } else {
@@ -4942,7 +5220,61 @@ async function calcAnnualPVT(){
       </table>
       </div>
       </div>`;
+    const annualMetrics = [
+      exportMetric("PVT electricity", E_pv_kWh, "kWh", 1, pvTempCorrEnable ? "Temperature-corrected cooled yield" : "Constant-efficiency yield"),
+      exportMetric("PVT thermal", E_th_kWh, "kWh", 1, "Annual thermal yield"),
+      exportMetric("PV-only baseline", E_pv_standalone_kWh, "kWh", 1, pvTempCorrEnable ? "Same area, uncooled NOCT model" : "Same area, constant efficiency"),
+      exportMetricText("Electricity from cooling", `${gainSign}${formatExportNumber(Math.abs(pvtElectricGainKWh), 1)} kWh`, `${gainSign}${pvtElectricGainPct.toFixed(1)}% vs PV-only`),
+      exportMetric("Total output", totalEnergy, "kWh", 1, "Electrical + thermal combined"),
+      exportMetric("Avg daytime outlet temp", daytimeToutAvg, "degC", 1, `Avg daytime air ${formatExportValue(exportMetric("", daytimeAmbientAvg, "degC", 1))}`),
+      exportMetric("PVT supply value", netAnnualBenefit, "", 2, "Upper-bound annual value (100% utilisation)", { prefix:"$", suffix:" /yr" })
+    ];
+    const annualTables = [
+      {
+        title: "Energy Detail",
+        rows: [
+          ["PVT electricity", formatExportValue(exportMetric("", E_pv_kWh, "kWh", 1))],
+          ["Standalone PV electricity", formatExportValue(exportMetric("", E_pv_standalone_kWh, "kWh", 1))],
+          ["Extra electricity from PVT cooling", `${gainSign}${formatExportNumber(Math.abs(pvtElectricGainKWh), 1)} kWh (${gainSign}${pvtElectricGainPct.toFixed(1)}%)`],
+          ["Thermal Energy (PVT model)", formatExportValue(exportMetric("", E_th_kWh, "kWh", 1))],
+          ["Total Energy", formatExportValue(exportMetric("", totalEnergy, "kWh", 1))]
+        ]
+      },
+      {
+        title: "Panel Temperature Model",
+        rows: [
+          ["PV/PVT electrical model", tempModelText.replace(/<[^>]+>/g, "")],
+          ["Daytime window", `10:00-17:00, G > ${PV_DAYTIME_TEMP_MIN_IRRADIANCE} W/m2`],
+          ["Average daytime air temperature", formatExportValue(exportMetric("", daytimeAmbientAvg, "degC", 1))],
+          ["Daytime PV-only panel temperature", formatExportValue(exportMetric("", daytimePvPanelAvg, "degC", 1))],
+          ["Daytime PVT panel temperature", formatExportValue(exportMetric("", daytimePvtPanelAvg, "degC", 1))],
+          ["Average PVT cooling", formatExportValue(exportMetric("", daytimeCoolingAvg, "degC", 1))],
+          ["Daytime Tin / Tout", `${formatExportValue(exportMetric("", daytimeTinAvg, "degC", 1))} / ${formatExportValue(exportMetric("", daytimeToutAvg, "degC", 1))}`]
+        ]
+      },
+      {
+        title: "Economic Analysis",
+        rows: [
+          ["CAPEX", formatExportValue(exportMetric("", capex, "", 2, "", { prefix:"$" }))],
+          ["OPEX (annual)", formatExportValue(exportMetric("", opexAnnual, "", 2, "", { prefix:"$", suffix:" /yr" }))],
+          ["Annual PVT Electricity Saving", formatExportValue(exportMetric("", annualSavingPV, "", 2, "", { prefix:"$", suffix:" /yr" }))],
+          ["Annual Heat Saving", formatExportValue(exportMetric("", annualSavingHeat, "", 2, "", { prefix:"$", suffix:" /yr" }))],
+          ["Annual Net Benefit", formatExportValue(exportMetric("", netAnnualBenefit, "", 2, "", { prefix:"$", suffix:" /yr" }))],
+          ["Simple Payback Period (SPP)", spp != null ? formatExportValue(exportMetric("", spp, "years", 1)) : "\u2014"],
+          [`NPV (${N} yr @ ${formatExportNumber(discountRate * 100, 1)}%)`, formatExportValue(exportMetric("", npv, "", 2, "", { prefix:"$" }))]
+        ]
+      },
+      {
+        title: "Levelised Cost",
+        rows: [
+          ["LCOE (electricity only)", lcoe != null ? formatExportValue(exportMetric("", lcoe, "/kWh_e", 2, "", { prefix:"$" })) : "\u2014"],
+          ["LCOH (heat only)", lcoh != null ? formatExportValue(exportMetric("", lcoh, "/kWh_th", 2, "", { prefix:"$" })) : "\u2014"],
+          ["Combined LCOE", lcoeCombo != null ? formatExportValue(exportMetric("", lcoeCombo, "/kWh_eq", 2, "", { prefix:"$" })) : "\u2014"]
+        ]
+      }
+    ];
     let industryHtml = "";
+    let industryReportSummary = null;
 
     CURRENT_PROCESS_DETAIL = null;
     CURRENT_EVAN_VIEW = null;
@@ -5029,6 +5361,24 @@ async function calcAnnualPVT(){
         thermalTitle: `Monthly Thermal Demand \u2014 ${profileLabels[dairyProfileType]}`,
         elecTitle: "Monthly Electrical Demand (Benchmark: 51.7 kWh/kL)",
         sharedScale: true
+      });
+      industryReportSummary = buildIndustryExportSummary({
+        savingsAud: totalSavingsAud,
+        solarHeatFraction: solarFraction,
+        solarElecFraction: elecSolarFrac,
+        unusedHeatKWh: excess,
+        unusedElectricityKWh: elecExcess,
+        areaM2: A,
+        locationName: CURRENT_LOC?.name || "selected location"
+      }, {
+        thermalDemandKWh: totalThermal_kWh,
+        solarHeatUsedKWh: demandMet,
+        backupHeatNeededKWh: unmet,
+        unusedHeatKWh: excess,
+        electricDemandKWh: totalElectric_kWh,
+        solarElectricUsedKWh: elecMetByPv,
+        gridElectricityNeededKWh: elecUnmet,
+        exportedElectricityKWh: elecExcess
       });
       industryHtml += `
         <div class="output-card output-card-industry">
@@ -5159,6 +5509,24 @@ async function calcAnnualPVT(){
         thermalTitle: `Monthly Thermal Demand \u2014 ${profileLabels[breweryProfileType]}`,
         elecTitle: `Monthly Electrical Demand (Benchmark: ${BREWERY_ELEC_PARAMS.kWhPerHL.toFixed(2)} kWh/hL)`,
         sharedScale: true
+      });
+      industryReportSummary = buildIndustryExportSummary({
+        savingsAud: totalSavingsAud,
+        solarHeatFraction: solarFraction,
+        solarElecFraction: elecSolarFrac,
+        unusedHeatKWh: excess,
+        unusedElectricityKWh: elecExcess,
+        areaM2: A,
+        locationName: CURRENT_LOC?.name || "selected location"
+      }, {
+        thermalDemandKWh: totalThermal_kWh,
+        solarHeatUsedKWh: demandMet,
+        backupHeatNeededKWh: unmet,
+        unusedHeatKWh: excess,
+        electricDemandKWh: totalElectric_kWh,
+        solarElectricUsedKWh: elecMetByPv,
+        gridElectricityNeededKWh: elecUnmet,
+        exportedElectricityKWh: elecExcess
       });
 
       industryHtml += `
@@ -5353,6 +5721,25 @@ async function calcAnnualPVT(){
         elecTitle: `Monthly Electrical Demand (${HOTEL_ELECTRICAL_KWH_PER_UNIT} kWh/room-night)`,
         sharedScale: true
       });
+      industryReportSummary = buildIndustryExportSummary({
+        savingsAud: totalSavingsAud,
+        solarHeatFraction: solarFraction,
+        solarElecFraction: elecSolarFrac,
+        unusedHeatKWh: excess,
+        unusedElectricityKWh: elecExcess,
+        areaM2: A,
+        locationName: CURRENT_LOC?.name || "selected location"
+      }, {
+        thermalDemandKWh: totalThermalDemandKWh,
+        solarHeatUsedKWh: demandMet,
+        backupHeatNeededKWh: unmet,
+        unusedHeatKWh: excess,
+        unusedHeatNote: "Excess PVT thermal after storage matching.",
+        electricDemandKWh: totalElecDemandKWh,
+        solarElectricUsedKWh: elecMetByPv,
+        gridElectricityNeededKWh: elecUnmet,
+        exportedElectricityKWh: elecExcess
+      });
 
       industryHtml += `
         <div class="output-card output-card-industry">
@@ -5515,6 +5902,24 @@ async function calcAnnualPVT(){
           <span class="dot" style="background:${AQUATIC_PROCESS_COLORS[key] || "#999"};"></span>
           ${processes[key]?.label || key}
         </span>`).join("");
+      industryReportSummary = buildIndustryExportSummary({
+        savingsAud: annualSavings,
+        solarHeatFraction: solarFraction,
+        solarElecFraction: aquaticElecSolarFrac,
+        unusedHeatKWh: excess,
+        unusedElectricityKWh: aquaticElecExcess,
+        areaM2: A,
+        locationName: CURRENT_LOC?.name || "selected location"
+      }, {
+        thermalDemandKWh: totalThermalDemandKWh,
+        solarHeatUsedKWh: demandMet,
+        backupHeatNeededKWh: unmet,
+        unusedHeatKWh: excess,
+        electricDemandKWh: totalAquaticElecKWh,
+        solarElectricUsedKWh: aquaticElecMetByPv,
+        gridElectricityNeededKWh: aquaticElecUnmet,
+        exportedElectricityKWh: aquaticElecExcess
+      });
 
       industryHtml += `
         <div class="output-card output-card-industry">
@@ -5568,31 +5973,202 @@ async function calcAnnualPVT(){
         </div>
         </div>`;
 
-    } else if (industry && INDUSTRY_UI[industry]){
-      const ui = INDUSTRY_UI[industry];
-      const throughput = parseFloat(document.getElementById("throughputInput").value) || 0;
-      const selectedKeys = getSelectedProcessKeys();
+    } else if (industry === "commercial_laundry" && INDUSTRY_UI[industry]){
+      const selectedKeys = LAUNDRY_PROCESS_STACK_ORDER.filter(k => getSelectedProcessKeys().includes(k));
       const processes = INDUSTRY_PROCESSES[industry] || {};
-      const processRows = [];
-      for (const key of selectedKeys){
-        const proc = processes[key];
-        if (!proc) continue;
-        processRows.push({
-          name: proc.label,
-          rate: "Process selected",
-          hours: profileLabels[profileType] || "Continuously active (24/7)",
-          kWh: null
-        });
+      const laundryInputs = getCommercialLaundryInputs();
+      if (!selectedKeys.length){
+        setOutput("Select at least one commercial-laundry thermal process to calculate demand.", true);
+        return;
       }
+      if (!(laundryInputs.kgPerDay > 0)){
+        setOutput("For commercial laundry, enter laundry processed greater than 0 kg/day.", true);
+        return;
+      }
+      if (!(laundryInputs.operatingDaysPerWeek > 0)){
+        setOutput("For commercial laundry, operating days/week must be greater than 0.", true);
+        return;
+      }
+      if (!(laundryInputs.waterUseLPerKg > 0)){
+        setOutput("For commercial laundry, total wash water must be greater than 0 L/kg.", true);
+        return;
+      }
+
+      const demand = calcCommercialLaundryHourlyDemand({
+        ...laundryInputs,
+        selectedKeys,
+        met,
+        mains: CURRENT_MAINS
+      });
+      const { thermalHourly, electricHourly, processByHour, processAnnuals, annualKg } = demand;
+      const totalThermalDemandKWh = thermalHourly.reduce((s,v)=>s+(v||0),0);
+      const totalElectricDemandKWh = electricHourly.reduce((s,v)=>s+(v||0),0);
+      const thermalBalance = calculateHourlyEnergyBalance(pvtThermalHourly, thermalHourly, met);
+      const storageBound = calculateMonthlyEnergyBalance(pvtThermalHourly, thermalHourly, met);
+      const demandMet = thermalBalance.metBySupply;
+      const unmet = thermalBalance.unmet;
+      const excess = thermalBalance.excess;
+      const solarFraction = thermalBalance.solarFraction;
+      const elecBalance = calculateHourlyElectricityBalance(pvElectricHourly, electricHourly, met);
+      const elecMetByPv = elecBalance.metByPv;
+      const elecUnmet = elecBalance.unmet;
+      const elecExcess = elecBalance.excess;
+      const elecSolarFrac = elecBalance.solarFraction;
+      const electricalSavingsAud = elecMetByPv * electricityPrice;
+      const exportSavingsAud = elecExcess * feedInTariff;
+      const thermalFuelSavingsAud = (demandMet * 3.6 / boilerEff) * gasPrice;
+      const totalSavingsAud = electricalSavingsAud + exportSavingsAud + thermalFuelSavingsAud;
+
+      const procLabels = {};
+      for (const key of selectedKeys) procLabels[key] = processes[key]?.label || LAUNDRY_PROCESS_SHORT_LABELS[key] || key;
+      CURRENT_PROCESS_DETAIL = { industry:"commercial_laundry", profileType:"kg_day_schedule", met, processByHour, processLabels:procLabels };
+
+      const processRows = selectedKeys.map(key => {
+        const annual = processAnnuals[key] || 0;
+        let rate = "Rate not specified";
+        let details = [];
+        if (key === "wash_water"){
+          rate = `${(laundryInputs.waterUseLPerKg * laundryInputs.hotWaterFraction).toFixed(2)} L hot water/kg`;
+          details = [`Target ${laundryInputs.washTempC.toFixed(0)} C`];
+        } else if (key === "rinse_preheat"){
+          rate = `${(laundryInputs.waterUseLPerKg * laundryInputs.warmRinseFraction).toFixed(2)} L warm rinse/kg`;
+          details = [`Target ${laundryInputs.warmRinseTempC.toFixed(0)} C`];
+        } else if (key === "boiler_preheat"){
+          rate = `${(laundryInputs.systemLossFraction * 100).toFixed(1)}% of wash/rinse heat`;
+          details = ["User-entered loss allowance"];
+        }
+        return {
+          name: processes[key]?.label || LAUNDRY_PROCESS_SHORT_LABELS[key] || key,
+          rate,
+          hours: `${String(LAUNDRY_DEFAULTS.startHour).padStart(2,"0")}:00-${String(LAUNDRY_DEFAULTS.endHour).padStart(2,"0")}:00, ${laundryInputs.operatingDaysPerWeek.toFixed(1)} days/week`,
+          details,
+          kWh: annual
+        };
+      });
+
+      const pvtMonthly = thermalBalance.supplyMonthly;
+      const pvMonthly = elecBalance.pvMonthly;
+      const thermMonthly = thermalBalance.demandMonthly;
+      const elecMonthly = elecBalance.demandMonthly;
+      const thermalDatasets = selectedKeys.map(k => ({
+        label: LAUNDRY_PROCESS_SHORT_LABELS[k] || k,
+        color: LAUNDRY_PROCESS_COLORS[k] || "#888",
+        monthly: aggregateMonthly(processByHour[k] || [], met)
+      }));
+      const chartSet = buildIndustryChartSet({
+        thermalDatasets, pvtMonthly, thermMonthly, pvMonthly, elecMonthly,
+        thermalTitle: "Monthly Commercial Laundry Hot-Water Demand",
+        elecTitle: "Monthly Electrical Demand (not modeled for laundry)",
+        supplyTitle: "Monthly PVT Thermal Supply vs Laundry Hot-Water Demand",
+        sharedScale: false
+      });
+      industryReportSummary = buildIndustryExportSummary({
+        savingsAud: totalSavingsAud,
+        solarHeatFraction: solarFraction,
+        solarElecFraction: elecSolarFrac,
+        unusedHeatKWh: excess,
+        unusedElectricityKWh: elecExcess,
+        areaM2: A,
+        locationName: CURRENT_LOC?.name || "selected location"
+      }, {
+        thermalDemandKWh: totalThermalDemandKWh,
+        solarHeatUsedKWh: demandMet,
+        backupHeatNeededKWh: unmet,
+        unusedHeatKWh: excess,
+        electricDemandKWh: totalElectricDemandKWh,
+        solarElectricUsedKWh: elecMetByPv,
+        gridElectricityNeededKWh: elecUnmet,
+        exportedElectricityKWh: elecExcess
+      });
+
       industryHtml += `
         <div class="output-card output-card-industry">
-        <h3>Thermal Demand \u2014 ${ui.name}</h3>
-        <p style="font-size:13px;">${ui.throughput.replace(':','')} <b>${throughput.toLocaleString()}</b></p>
-        <p style="font-size:13px;"><b>Operating profile:</b> ${profileLabels[profileType] || "Continuously active (24/7)"}</p>
-        ${buildProcessBreakdown(processRows, null)}
-        <p class="note" style="margin-top:10px;"><b>Note:</b> Load profile calculations for ${ui.name} are under development.</p>
+        ${buildIndustryPerformanceSummary({
+          savingsAud: totalSavingsAud,
+          solarHeatFraction: solarFraction,
+          solarElecFraction: elecSolarFrac,
+          unusedHeatKWh: excess,
+          unusedElectricityKWh: elecExcess,
+          areaM2: A,
+          locationName: CURRENT_LOC?.name || "selected location"
+        })}
+        <div class="industry-top-row">
+          <div style="flex:1 1 420px;">
+            <h3 style="margin:0 0 8px 0;">Commercial Laundry — Hot-Water Washing Demand</h3>
+            <p style="font-size:13px;margin:0 0 6px 0;"><b>Annual laundry processed:</b> ${annualKg.toLocaleString(undefined,{maximumFractionDigits:0})} kg/yr</p>
+            <p style="font-size:13px;margin:0 0 6px 0;"><b>Model scope:</b> hot-water washing demand only; drying and whole-site electricity are not included.</p>
+            <div class="mains-links" style="margin:6px 0 10px 0;">
+              <a class="mains-link" href="#" onclick="openLaundryModelBasis(event)">Model basis &amp; sources</a>
+            </div>
+          </div>
+          <button type="button" class="industry-model-box" onclick="openLaundryModelBasis(event)">
+            <b>Laundry Model Basis</b>
+            <span>Hot-water demand equation, editable assumptions, and source limits.</span>
+          </button>
+        </div>
+        ${buildIndustryEnergyFlowSummary({
+          thermalDemandKWh: totalThermalDemandKWh,
+          solarHeatUsedKWh: demandMet,
+          backupHeatNeededKWh: unmet,
+          unusedHeatKWh: excess,
+          electricDemandKWh: totalElectricDemandKWh,
+          solarElectricUsedKWh: elecMetByPv,
+          gridElectricityNeededKWh: elecUnmet,
+          exportedElectricityKWh: elecExcess
+        })}
+        <div class="industry-actions">
+          <button type="button" class="detail-toggle" onclick="toggleIndustryDetails(this)" aria-expanded="false">Show detailed industry results</button>
+          <span class="note">Open for process breakdown, balances, storage note, and charts.</span>
+        </div>
+        <div class="industry-detail-panel" hidden>
+        <p style="font-size:13px;"><b>Inputs:</b> ${laundryInputs.kgPerDay.toLocaleString(undefined,{maximumFractionDigits:0})} kg/day, ${laundryInputs.operatingDaysPerWeek.toFixed(1)} days/week, ${laundryInputs.waterUseLPerKg.toFixed(2)} L/kg, hot-water fraction ${laundryInputs.hotWaterFraction.toFixed(2)}.</p>
+        <p class="note" style="margin:0 0 10px 0;">Heat demand uses local mains-water temperature from the loaded weather/mains model. Warm rinse and system losses are optional sensitivity terms.</p>
+        ${buildProcessBreakdown(processRows, totalThermalDemandKWh)}
+        ${buildStorageNote(solarFraction, storageBound.solarFraction)}
+        ${buildHeatBalanceTable("Heat Balance (hourly direct use, no storage)", demandMet, unmet, excess, solarFraction)}
+        ${buildElecBalanceTable("Total yearly electricity use (not modeled for laundry)", totalElectricDemandKWh, elecMetByPv, elecUnmet, elecExcess, elecSolarFrac)}
+        ${buildSavingsTable({ boilerEff, gridEmissionFactor, solarHeatUsedKWh: demandMet, solarElecUsedKWh: elecMetByPv, thermalFuelSavingsAud, electricalSavingsAud, exportSavingsAud, totalSavingsAud })}
+        <div class="industry-chart-group">
+          ${chartSet}
+        </div>
+        </div>
         </div>`;
+
+    } else if (industry && INDUSTRY_UI[industry]){
+      const ui = INDUSTRY_UI[industry];
+      setOutput(`Industry "${ui.name}" is configured in the UI but has no implemented demand model. Add a tested demand branch before enabling it.`, true);
+      return;
     }
+
+    CURRENT_CALC_RESULT = {
+      schemaVersion: 1,
+      generatedAtIso: new Date().toISOString(),
+      location: CURRENT_LOC ? { name: CURRENT_LOC.name, lat: CURRENT_LOC.lat, lon: CURRENT_LOC.lon } : null,
+      weather: buildWeatherExportMetadata(),
+      inputs: collectInputState(),
+      thermalModel,
+      annualMetrics,
+      annualTables,
+      industrySummary: industryReportSummary,
+      annualRaw: {
+        pvtElectricKWh: E_pv_kWh,
+        pvtThermalKWh: E_th_kWh,
+        pvOnlyKWh: E_pv_standalone_kWh,
+        pvStcKWh: E_pv_stc_kWh,
+        totalEnergyKWh: totalEnergy,
+        netAnnualBenefitAud: netAnnualBenefit,
+        capexAud: capex,
+        opexAnnualAud: opexAnnual,
+        lcoeAudPerKWh: lcoe,
+        lcohAudPerKWh: lcoh,
+        combinedLcoeAudPerKWh: lcoeCombo
+      },
+      hourly: {
+        usedRows: used,
+        csvHeader: out[0],
+        csvSource: "calculation arrays rounded for hourly-detail download"
+      }
+    };
 
     setOutput(html);
     setIndustryOutput(industryHtml);
@@ -5711,8 +6287,25 @@ function restoreInputsFromStorage(){
 // ================================================================
 // Build a URL that reproduces the current inputs (address, area, tilt,
 // model, economics, custom monthly mains, …) — UTF-8-safe base64 in #s=.
+function buildShareScenarioPayload(){
+  return {
+    schemaVersion: 2,
+    app: "CoolSheet PVT Calculator",
+    createdAtIso: new Date().toISOString(),
+    inputs: collectInputState(),
+    location: CURRENT_LOC ? { name: CURRENT_LOC.name, lat: CURRENT_LOC.lat, lon: CURRENT_LOC.lon } : null,
+    weather: buildWeatherExportMetadata(),
+    resultSummary: CURRENT_CALC_RESULT ? {
+      generatedAtIso: CURRENT_CALC_RESULT.generatedAtIso,
+      thermalModel: CURRENT_CALC_RESULT.thermalModel,
+      annualRaw: CURRENT_CALC_RESULT.annualRaw
+    } : null,
+    reproducibilityNote: "Inputs are reproducible. Live PVGIS/API weather, hosted backend version, and future app versions can change unless using locked validation fixtures."
+  };
+}
+
 function buildShareUrl(){
-  const json = JSON.stringify(collectInputState());
+  const json = JSON.stringify(buildShareScenarioPayload());
   const b64  = btoa(unescape(encodeURIComponent(json)));
   return `${location.origin}${location.pathname}#s=${b64}`;
 }
@@ -5724,7 +6317,14 @@ function applySharedScenarioFromUrl(){
   if (!m) return false;
   try {
     const json = decodeURIComponent(escape(atob(m[1])));
-    applyInputState(JSON.parse(json));
+    const payload = JSON.parse(json);
+    if (payload && payload.schemaVersion >= 2 && payload.inputs){
+      LAST_SHARED_SCENARIO_METADATA = payload;
+      applyInputState(payload.inputs);
+    } else {
+      LAST_SHARED_SCENARIO_METADATA = null;
+      applyInputState(payload);
+    }
     return true;
   } catch(e){
     console.warn("Could not parse shared scenario from URL:", e);
@@ -5759,6 +6359,49 @@ function buildSummaryCsv(){
   };
   const lines = [];
   const push = (...cells) => lines.push(cells.map(esc).join(","));
+  const result = CURRENT_CALC_RESULT;
+
+  if (result){
+    push("CoolSheet PVT Calculator - results summary");
+    push("Location", result.location?.name || "N/A");
+    push("Coordinates", result.location ? `${result.location.lat.toFixed(6)}, ${result.location.lon.toFixed(6)}` : "N/A");
+    push("Collector / PV area (m2)", result.inputs?.area || "");
+    push("Thermal model", getCheckedThermalModelLabel());
+    push("Industry", getSelectedOptionText("industrySelect") || "None");
+    push("Generated", result.generatedAtIso || new Date().toISOString());
+    push("Weather records", result.weather?.records ?? "N/A");
+    push("Weather solarHour records", result.weather ? `${result.weather.solarHourRecords}/${result.weather.records}` : "N/A");
+    push("Weather timezone", result.weather?.timezone || "N/A");
+    push("");
+
+    if (result.annualMetrics?.length){
+      push("Annual summary", "value", "note");
+      result.annualMetrics.forEach(k => push(k.label, formatExportValue(k), k.note || ""));
+      push("");
+    }
+    for (const table of result.annualTables || []){
+      push(table.title || "Table");
+      for (const row of table.rows || []) push(...row);
+      push("");
+    }
+    if (result.industrySummary){
+      const summary = collectIndustryReportSummary();
+      push("Industry summary");
+      push("Headline", summary.headline || "");
+      push("Subhead", summary.subhead || "");
+      if (summary.metrics?.length){
+        push("Industry metrics", "value", "note");
+        summary.metrics.forEach(k => push(k.label, k.value, k.note || ""));
+      }
+      if (summary.energy?.length){
+        push("");
+        push("Industry energy balance", "value", "note");
+        summary.energy.forEach(k => push(k.label, k.value, k.note || ""));
+      }
+      push("");
+    }
+    return lines.join("\n").replace(/\n+$/,"") + "\n";
+  }
 
   push("CoolSheet PVT Calculator — results summary");
   push("Location", CURRENT_LOC?.name || "N/A");
@@ -5790,7 +6433,7 @@ function buildSummaryCsv(){
 
 function downloadSummaryCsv(){
   const root = document.getElementById("annualOutput");
-  if (!root || !root.textContent.trim() || root.textContent.trim().startsWith("Ready")){
+  if (!CURRENT_CALC_RESULT && (!root || !root.textContent.trim() || root.textContent.trim().startsWith("Ready"))){
     alert("Run a calculation first, then download the summary.");
     return;
   }
@@ -5822,6 +6465,7 @@ if (_sharedScenarioApplied){
   if (shareStatus){
     shareStatus.textContent = "Shared scenario loaded — press “Geocode & Load TMY”, then Calculate.";
     shareStatus.style.display = "inline";
+    shareStatus.textContent = "Shared scenario loaded - inputs restored. Re-load TMY before calculating; live weather/API data may differ from the original run.";
   }
 }
 // Sync UI that depends on restored values: thermal-model panel + testing mode.

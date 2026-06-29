@@ -1,12 +1,14 @@
-// Group F: reference-link integrity. Extracts every http(s) URL cited in app.js
+// Group F: reference-link integrity. Extracts every http(s) URL cited in js/app.js
 // and checks each resolves. Browser-like UA; 2xx/3xx = OK. Some sites block bots
 // (403/405) even when the link is fine, so those are reported as REVIEW, not fail.
 // Run: node validation/check_links.mjs
 import fs from "node:fs";
 
-const SRC = fs.readFileSync("app.js", "utf8");
+const APP_JS_PATH = new URL("../js/app.js", import.meta.url);
+const SRC = fs.readFileSync(APP_JS_PATH, "utf8");
 const urls = [...new Set((SRC.match(/https?:\/\/[^\s"'`)]+/g) || [])
   .map(u => u.replace(/[.,);]+$/, "")))]
+  .filter(u => !u.includes("${"))
   .filter(u => !/onrender\.com|localhost|example\.com/.test(u)); // skip API/dev hosts
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36";
@@ -28,7 +30,7 @@ for (let i=0; i<urls.length; i+=5){
 }
 
 let okN=0, reviewN=0, badN=0;
-console.log(`\nChecked ${out.length} cited URLs in app.js\n`);
+console.log(`\nChecked ${out.length} cited URLs in js/app.js\n`);
 for (const r of out.sort((a,b)=>a.status-b.status)){
   const tag = r.ok ? "OK    " : ([401,403,405,429].includes(r.status) ? "REVIEW" : "BAD   ");
   if (r.ok) okN++; else if (tag==="REVIEW") reviewN++; else badN++;

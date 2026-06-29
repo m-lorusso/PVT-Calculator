@@ -1,10 +1,11 @@
 // Industry demand-model tests (groups B, C, E).
-// Extracts the REAL functions/constants from app.js (no copy-paste) and checks
+// Extracts the REAL functions/constants from js/app.js (no copy-paste) and checks
 // that each model reproduces its stated Australian benchmark and the documented
 // Q = m c_p dT thermal formula. Run: node validation/test_industry.mjs
 import fs from "node:fs";
 
-const SRC = fs.readFileSync("app.js", "utf8");
+const APP_JS_PATH = new URL("../js/app.js", import.meta.url);
+const SRC = fs.readFileSync(APP_JS_PATH, "utf8");
 
 // --- robust extractor: pull a named `function` or top-level `const` from source ---
 function extract(name, kind){
@@ -43,12 +44,14 @@ const SYMBOLS = [
   ["AQUATIC_COVER_REDUCTION","const"],["AQUATIC_ELEC_KWH_PER_M2_PER_YEAR","const"],
   ["EVAP_LATENT_KWH_PER_KG","const"],["WATER_CP_KWH_PER_KG_C","const"],
   ["HOTEL_PROCESS_PARAMS","const"],["HOTEL_ELECTRICAL_KWH_PER_UNIT","const"],
+  ["LAUNDRY_DEFAULTS","const"],["LAUNDRY_PROCESS_STACK_ORDER","const"],
   ["getAnnualAmbientAverage","func"],["getAquaticSchedule","func"],["saturationVaporPressureKPa","func"],
   ["getAquaticRelativeHumidity","func"],
   ["calcDairyHourlyDemand","func"],["calcBreweryHourlyDemand","func"],["calcAquaticHourlyDemand","func"],
+  ["laundryOperatingDayWeight","func"],["calcCommercialLaundryHourlyDemand","func"],
 ];
 const code = SYMBOLS.map(([n,k]) => extract(n,k)).join("\n");
-const mod = new Function(code + "\nreturn {calcDairyHourlyDemand,calcBreweryHourlyDemand,calcAquaticHourlyDemand,DAIRY_PROCESS_PARAMS,BREWERY_PROCESS_PARAMS,DAIRY_ELEC_PARAMS,BREWERY_ELEC_PARAMS,HOTEL_PROCESS_PARAMS,HOTEL_ELECTRICAL_KWH_PER_UNIT,normalizeSeasonalFactors,DAIRY_SEASONAL,MONTH_DAYS};")();
+const mod = new Function(code + "\nreturn {calcDairyHourlyDemand,calcBreweryHourlyDemand,calcAquaticHourlyDemand,calcCommercialLaundryHourlyDemand,DAIRY_PROCESS_PARAMS,BREWERY_PROCESS_PARAMS,DAIRY_ELEC_PARAMS,BREWERY_ELEC_PARAMS,HOTEL_PROCESS_PARAMS,HOTEL_ELECTRICAL_KWH_PER_UNIT,LAUNDRY_DEFAULTS,LAUNDRY_PROCESS_STACK_ORDER,normalizeSeasonalFactors,DAIRY_SEASONAL,MONTH_DAYS,WATER_CP_KWH_PER_KG_C};")();
 
 // --- synthetic full-year weather + constant mains so thermal totals are predictable ---
 const MAINS_C = 18;
@@ -121,6 +124,48 @@ console.log("\n# HOTEL  (60,000 occupied room-nights; energy per room-night)");
   near("Annual electrical = 15 kWh/room-night", RN*mod.HOTEL_ELECTRICAL_KWH_PER_UNIT, 60000*15, 0.01);
   const totalTh = (dhw+H.kitchen_dishwashing.kWhPerUnit+H.laundry.kWhPerUnit)*RN;
   console.log(`        (info) thermal (DHW+kitchen+laundry) = ${totalTh.toFixed(0)} kWh/yr; was ${((5.5+1.6+1.2)*RN).toFixed(0)} before DHW tune`);
+}
+
+console.log("\n# COMMERCIAL LAUNDRY  (hot-water washing demand only)");
+{
+  const inputs = {
+    kgPerDay: 1500,
+    operatingDaysPerWeek: 6,
+    washTempC: 60,
+    waterUseLPerKg: 10,
+    hotWaterFraction: 0.65,
+    warmRinseFraction: 0.20,
+    warmRinseTempC: 35,
+    systemLossFraction: 0,
+    selectedKeys: ["wash_water","rinse_preheat","boiler_preheat"],
+    met,
+    mains
+  };
+  const r = mod.calcCommercialLaundryHourlyDemand(inputs);
+  const annualKg = inputs.kgPerDay * inputs.operatingDaysPerWeek * 52;
+  const expWash = annualKg * inputs.waterUseLPerKg * inputs.hotWaterFraction * mod.WATER_CP_KWH_PER_KG_C * (inputs.washTempC - MAINS_C);
+  const expRinse = annualKg * inputs.waterUseLPerKg * inputs.warmRinseFraction * mod.WATER_CP_KWH_PER_KG_C * (inputs.warmRinseTempC - MAINS_C);
+  near("Annual kg = kg/day x days/week x 52", r.annualKg, annualKg, 0.01);
+  near("Wash hot water = m cp dT", sum(r.processByHour.wash_water), expWash, 0.01);
+  near("Warm rinse = m cp dT", sum(r.processByHour.rinse_preheat), expRinse, 0.01);
+  near("System loss default = 0", sum(r.processByHour.boiler_preheat), 0, 0.01);
+  near("Total laundry thermal = wash + rinse + loss", sum(r.thermalHourly), expWash + expRinse, 0.01);
+  const doubled = mod.calcCommercialLaundryHourlyDemand({...inputs, kgPerDay: inputs.kgPerDay * 2});
+  near("Laundry demand scales linearly with kg/day", sum(doubled.thermalHourly), 2 * sum(r.thermalHourly), 0.01);
+  const withLoss = mod.calcCommercialLaundryHourlyDemand({...inputs, systemLossFraction:0.10});
+  near("System loss = 10% of selected wash+rinse heat", sum(withLoss.processByHour.boiler_preheat), 0.10 * (expWash + expRinse), 0.01);
+  const washOnly = mod.calcCommercialLaundryHourlyDemand({...inputs, selectedKeys:["wash_water"]});
+  near("Selecting only wash excludes rinse and losses", sum(washOnly.thermalHourly), expWash, 0.01);
+  const washLossOnly = mod.calcCommercialLaundryHourlyDemand({...inputs, selectedKeys:["wash_water","boiler_preheat"], systemLossFraction:0.10});
+  near("System loss follows selected heat terms only", sum(washLossOnly.processByHour.boiler_preheat), 0.10 * expWash, 0.01);
+  const idle = mod.calcCommercialLaundryHourlyDemand({...inputs, operatingDaysPerWeek:0});
+  near("Zero operating days gives zero thermal demand", sum(idle.thermalHourly), 0, 0.01);
+  const noProcesses = mod.calcCommercialLaundryHourlyDemand({...inputs, selectedKeys:[]});
+  near("No selected laundry processes gives zero thermal demand", sum(noProcesses.thermalHourly), 0, 0.01);
+  const hotMains = { annualAvgC: 30, byDay: Object.fromEntries(Array.from({length:365},(_,i)=>[i+1,30])) };
+  const lower = mod.calcCommercialLaundryHourlyDemand({...inputs, mains: hotMains});
+  ok("Higher mains temperature lowers laundry heat", sum(lower.thermalHourly) < sum(r.thermalHourly), `hot=${sum(lower.thermalHourly)} base=${sum(r.thermalHourly)}`);
+  ok("Laundry electric demand is explicitly out of scope", sum(r.electricHourly) === 0, `electric=${sum(r.electricHourly)}`);
 }
 
 console.log("\n# SEASONAL NORMALISATION (annual total preserved)");

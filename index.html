@@ -328,6 +328,40 @@
         </div>
       </div>
 
+      <div id="laundryInputsPanel" class="full-row" style="display:none;">
+        <div style="margin:8px 0;padding:10px;background:#f8fbf7;border-radius:6px;border:1px solid #cfe5c9;">
+          <div class="grid">
+            <label for="laundryKgPerDay"><b>Laundry processed (kg/day):</b></label>
+            <input id="laundryKgPerDay" type="number" min="0" step="10" value="1500" />
+
+            <label for="laundryOperatingDaysPerWeek"><b>Operating days per week:</b></label>
+            <input id="laundryOperatingDaysPerWeek" type="number" min="0" max="7" step="0.5" value="6" />
+
+            <label for="laundryWashTempC"><b>Wash hot-water target (&deg;C):</b></label>
+            <input id="laundryWashTempC" type="number" min="20" max="95" step="1" value="60" />
+
+            <label for="laundryWaterUseLPerKg"><b>Total wash water (L/kg laundry):</b></label>
+            <input id="laundryWaterUseLPerKg" type="number" min="0" step="0.1" value="10" />
+
+            <label for="laundryHotWaterFraction"><b>Hot-water fraction of wash water:</b></label>
+            <input id="laundryHotWaterFraction" type="number" min="0" max="1" step="0.01" value="0.65" />
+
+            <label for="laundryWarmRinseFraction"><b>Warm-rinse fraction (optional):</b></label>
+            <input id="laundryWarmRinseFraction" type="number" min="0" max="1" step="0.01" value="0.20" />
+
+            <label for="laundryWarmRinseTempC"><b>Warm-rinse/preheat target (&deg;C):</b></label>
+            <input id="laundryWarmRinseTempC" type="number" min="15" max="60" step="1" value="35" />
+
+            <label for="laundrySystemLossFraction"><b>Hot-water system loss fraction:</b></label>
+            <input id="laundrySystemLossFraction" type="number" min="0" max="1" step="0.01" value="0" />
+
+            <div class="full-row note" style="margin-top:2px;">
+              Commercial laundry demand is a hot-water washing model: kg/day and operating days set throughput, mains water sets inlet temperature, and Q = m c_p &Delta;T sets heat demand.
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="processPanel" class="full-row" style="display:none;">
         <div style="margin:8px 0;padding:10px;background:#f0f4f8;border-radius:6px;border:1px solid #cce;">
           <div style="font-size:13px;font-weight:600;margin-bottom:6px;">Select thermal processes:</div>
