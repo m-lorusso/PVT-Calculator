@@ -393,7 +393,7 @@
             <input id="boilerEffInput" type="number" min="0.5" max="1" step="0.01" value="0.85" />
 
             <label for="gridEmissionFactor" class="setting-label">Grid emission factor (kg CO&#8322;-e/kWh):<span class="setting-tags"><span class="setting-chip industry">Industry</span></span></label>
-            <select id="gridEmissionFactor">
+            <select id="gridEmissionFactor" aria-describedby="gridEmissionFactorSource">
               <option value="0.62" selected>National average &mdash; 0.62</option>
               <option value="0.64">NSW &amp; ACT &mdash; 0.64</option>
               <option value="0.78">VIC &mdash; 0.78</option>
@@ -403,6 +403,9 @@
               <option value="0.20">TAS &mdash; 0.20</option>
               <option value="0.56">NT (DKIS) &mdash; 0.56</option>
             </select>
+            <div id="gridEmissionFactorSource" class="note full-row" style="margin:-4px 0 4px;">
+              Source: DCCEEW <a href="https://www.dcceew.gov.au/climate-change/publications/national-greenhouse-accounts-factors-2025" target="_blank" rel="noopener">National Greenhouse Accounts Factors 2025</a>, electricity Scope 2 location-based emission factors (kg CO&#8322;-e/kWh): National average, NSW &amp; ACT, VIC, QLD, SA, WA (SWIS), TAS, and NT (DKIS).
+            </div>
 
             <label for="capexInput" class="setting-label"><b>CAPEX &ndash; Unit Cost (AUD/m&sup2;):</b><span class="setting-tags"><span class="setting-chip annual">Annual PVT</span></span></label>
             <input id="capexInput" type="number" min="0" step="10" value="800" />
