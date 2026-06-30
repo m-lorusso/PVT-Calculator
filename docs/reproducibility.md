@@ -51,7 +51,7 @@ npm run test:live-industries
 By default this checks `https://coolsheet-pvt.github.io/`, uses the live Render backend, covers Sydney and Melbourne, and writes an ignored artifact to:
 
 ```text
-validation/live-results/live-industry-matrix.json
+validation/reports/live-results/live-industry-matrix.json
 ```
 
 Useful overrides:

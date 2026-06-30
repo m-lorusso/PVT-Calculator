@@ -86,4 +86,4 @@ GitHub Pages hosting relies on existing public paths:
 - `assets/*`
 - `pages/*`
 
-The file tree additions under `docs/`, `validation/fixtures/`, and `.github/` do not change public app routes.
+The validation tree is organised under `validation/unit/`, `validation/browser/`, `validation/backend/`, `validation/fixtures/`, `validation/reference/`, `validation/scripts/`, and `validation/reports/`. This does not change public app routes.

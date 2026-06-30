@@ -1,7 +1,7 @@
 // Static contract checks for export/report/share state handling.
 import fs from "node:fs";
 
-const SRC = fs.readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+const SRC = fs.readFileSync(new URL("../../js/app.js", import.meta.url), "utf8");
 let pass = 0, fail = 0;
 function ok(name, cond, detail=""){
   if (cond){ pass++; console.log(`  PASS  ${name}`); }

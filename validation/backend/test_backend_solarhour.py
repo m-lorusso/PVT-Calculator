@@ -16,7 +16,7 @@ from unittest import mock
 import pandas as pd
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 API_DIR = ROOT / "pvt-tmy-api"
 sys.path.insert(0, str(API_DIR))
 

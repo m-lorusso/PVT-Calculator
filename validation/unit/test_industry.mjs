@@ -1,10 +1,10 @@
 // Industry demand-model tests (groups B, C, E).
 // Extracts the REAL functions/constants from js/app.js (no copy-paste) and checks
 // that each model reproduces its stated Australian benchmark and the documented
-// Q = m c_p dT thermal formula. Run: node validation/test_industry.mjs
+// Q = m c_p dT thermal formula. Run: node validation/unit/test_industry.mjs
 import fs from "node:fs";
 
-const APP_JS_PATH = new URL("../js/app.js", import.meta.url);
+const APP_JS_PATH = new URL("../../js/app.js", import.meta.url);
 const SRC = fs.readFileSync(APP_JS_PATH, "utf8");
 
 // --- robust extractor: pull a named `function` or top-level `const` from source ---

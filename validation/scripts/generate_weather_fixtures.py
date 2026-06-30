@@ -14,7 +14,7 @@ from datetime import date
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 API_DIR = ROOT / "pvt-tmy-api"
 OUT_DIR = ROOT / "validation" / "fixtures" / "weather"
 sys.path.insert(0, str(API_DIR))

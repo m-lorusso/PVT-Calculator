@@ -1,7 +1,7 @@
 // Group E: economics formula tests. Mirrors the finance math in app.js
 // (calcAnnualPVT, ~lines 4475-4500): CRF, NPV annuity, LCOE split, payback,
 // and the heat-saving unit conversion. Verifies correctness + self-consistency.
-// Run: node validation/test_economics.mjs
+// Run: node validation/unit/test_economics.mjs
 
 let pass=0, fail=0;
 const ok=(n,c,d="")=>{ c?pass++:fail++; console.log(`  ${c?"PASS":"FAIL"}  ${n}${c?"":"  "+d}`); };

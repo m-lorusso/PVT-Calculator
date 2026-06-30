@@ -16,10 +16,11 @@ photovoltaic-thermal (PVT) solar systems for Australian commercial sites.
 | File | Purpose |
 |---|---|
 | `index.html` | Main calculator |
-| `cer_comparison.html` | BC-Aus model validation tool |
-| `bc_aus_zone_constants.js` | Regional BC-Aus constants (5 climate zones) |
-| `fit_bc_aus_by_zone.py` | Script that generates the zone constants |
+| `pages/cer_comparison.html` | BC-Aus model validation tool |
+| `js/bc_aus_zone_constants.js` | Regional BC-Aus constants (5 climate zones) |
+| `tools/fit_bc_aus_by_zone.py` | Script that generates the zone constants |
 | `pvt-tmy-api/` | Local FastAPI server for PVGIS weather fetching |
+| `validation/` | Offline, browser, backend, fixture, reference, and live validation evidence |
 
 ## Running locally
 
@@ -61,12 +62,15 @@ npm run test:backend-solarhour
 npm run test:no-nan
 npm run test:export-share
 npm run test:browser
+npm run test:live-industries
 npm run test:links
 ```
 
 `npm test` runs the offline core checks. `npm run test:links` performs live URL
-checks and needs network access. `npm run test:browser` requires Playwright's
-Chromium binary once:
+checks and needs network access. `npm run test:live-industries` checks the
+deployed GitHub Pages frontend against the live Render backend and also needs
+network access. `npm run test:browser` requires Playwright's Chromium binary
+once:
 
 ```
 npx playwright install chromium

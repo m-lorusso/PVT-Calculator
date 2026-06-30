@@ -4024,7 +4024,7 @@ let LOAD_REQUEST_SEQ = 0;
 // ----------------------------------------------------------------
 // avgC / swingC are each zone city's climate fingerprint: day-weighted annual
 // average dry-bulb and max-minus-min monthly swing, derived from the TMYx .stat
-// files in validation2/ (the same climates the BC-Aus zone constants were fitted to).
+// files in validation/fixtures/energyplus/ (the same climates the BC-Aus zone constants were fitted to).
 // Zone matching prefers climate similarity over geographic distance: Perth is
 // ~2,000 km from every anchor city, but its climate matches Sydney (zone 3),
 // not Alice Springs (zone 1). Swing matters as much as average — Alice Springs

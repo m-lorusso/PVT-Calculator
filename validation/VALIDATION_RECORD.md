@@ -95,7 +95,7 @@ front-end falls back to the previous behaviour automatically — nothing breaks.
   Conservative; kept partly because the thermal Model A/B coefficients were calibrated on
   this irradiance basis — changing it would desync them.
 - **D. Cooper declination** (±1.39°). Could be replaced by Spencer for a further
-  ~0.3° zenith improvement (variant C in `prove_fix.py`) — marginal, not applied.
+  ~0.3° zenith improvement (variant C in `scripts/prove_fix.py`) — marginal, not applied.
 - **E. Measured GHI is reconstructed** (`DNI·cosθz + DHI`) rather than read from the data.
   Only feeds the small ground-reflected term; annual impact negligible (<0.2%).
 - **F. Constant PV efficiency** (no temperature derating). If these were *uncooled*
@@ -112,29 +112,29 @@ All scripts are run from the repo root. Python re-fetches PVGIS (~30 s, cached 2
 
 | File | Purpose | Run |
 |---|---|---|
-| `verify_formulas.py` | Fetch TMY, pvlib isotropic+Perez reference, export `tmy_*.json` | `python validation/verify_formulas.py` |
-| `verify_js.mjs` | App class vs pvlib + solar-time isolation | `node validation/verify_js.mjs` |
-| `deep_validation.py` | Declination/zenith/GHI-closure/components/peak-timing/PV-temp | `python validation/deep_validation.py` |
-| `prove_fix.py` | Proves solarHour collapses zenith error (variants A/B/C) | `python validation/prove_fix.py` |
-| `backend_e2e.py` | Calls the REAL `server.tmy()`, exports `backend_*.json` | `python validation/backend_e2e.py` |
-| `verify_js_e2e.mjs` | Real backend output → real front-end logic, before/after | `node validation/verify_js_e2e.mjs` |
-| `test_geometry.mjs` | 17 assertion unit tests (known values + edge cases) | `node validation/test_geometry.mjs` |
-| `spot_check.mjs`, `az_check.mjs` | Quick geometry / azimuth sanity prints | `node validation/<file>` |
+| `scripts/verify_formulas.py` | Fetch TMY, pvlib isotropic+Perez reference, export `fixtures/tmy/tmy_*.json` and `reference/reference_summary.json` | `python validation/scripts/verify_formulas.py` |
+| `scripts/verify_js.mjs` | App class vs pvlib + solar-time isolation | `node validation/scripts/verify_js.mjs` |
+| `scripts/deep_validation.py` | Declination/zenith/GHI-closure/components/peak-timing/PV-temp | `python validation/scripts/deep_validation.py` |
+| `scripts/prove_fix.py` | Proves solarHour collapses zenith error (variants A/B/C) | `python validation/scripts/prove_fix.py` |
+| `backend/backend_e2e.py` | Calls the REAL `server.tmy()`, exports `fixtures/backend/backend_*.json` | `python validation/backend/backend_e2e.py` |
+| `scripts/verify_js_e2e.mjs` | Real backend output → real front-end logic, before/after | `node validation/scripts/verify_js_e2e.mjs` |
+| `unit/test_geometry.mjs` | 17 assertion unit tests (known values + edge cases) | `node validation/unit/test_geometry.mjs` |
+| `scripts/spot_check.mjs`, `scripts/az_check.mjs` | Quick geometry / azimuth sanity prints | `node validation/scripts/<file>` |
 
-Generated data: `tmy_*.json`, `backend_*.json`, `reference_summary.json`, `deep_results.json`.
+Generated data: `fixtures/tmy/tmy_*.json`, `fixtures/backend/backend_*.json`, `reference/reference_summary.json`, `reference/deep_results.json`.
 
 Demand-side / industry & economics scripts (added later):
 | File | Purpose | Run |
 |---|---|---|
-| `test_industry.mjs` | Extracts REAL dairy/brewery/aquatic/hotel functions from app.js; checks benchmarks + Q=mcΔT + aquatic physics + hotel per-room-night | `node validation/test_industry.mjs` (14 tests) |
-| `test_economics.mjs` | CRF, NPV annuity, LCOE split, heat-saving conversion, payback | `node validation/test_economics.mjs` (12 tests) |
-| `check_links.mjs` | Verifies every cited URL in app.js resolves | `node validation/check_links.mjs` |
+| `unit/test_industry.mjs` | Extracts REAL dairy/brewery/aquatic/hotel functions from app.js; checks benchmarks + Q=mcΔT + aquatic physics + hotel per-room-night | `node validation/unit/test_industry.mjs` |
+| `unit/test_economics.mjs` | CRF, NPV annuity, LCOE split, heat-saving conversion, payback | `node validation/unit/test_economics.mjs` |
+| `scripts/check_links.mjs` | Verifies every cited URL in app.js resolves | `node validation/scripts/check_links.mjs` |
 
 ---
 
 ## 6b. Demand-side models — validation & Australian references
 
-The four industry demand models were tested (real code, via `test_industry.mjs`) and their
+The four industry demand models were tested (real code, via `unit/test_industry.mjs`) and their
 sources reviewed/strengthened against Australian data. **Model A/B thermal still untouched.**
 
 | Model | Benchmark / basis | Australian references | Tests |
@@ -161,5 +161,5 @@ Note: the BC-Aus mains-water model already has its own validation pages (`valida
 - [ ] (Optional) Replace Cooper declination with Spencer for ~0.3° more zenith accuracy.
 - [ ] (Optional) Offer a Perez transposition toggle if matching PVGIS/PVWatts exactly is
       desired — but re-check Model A/B coefficient calibration first.
-- [ ] Extend unit tests with a small fixed TMY fixture so `test_geometry.mjs` can assert
+- [ ] Extend unit tests with a small fixed TMY fixture so `unit/test_geometry.mjs` can assert
       an annual-POA number offline (no network).

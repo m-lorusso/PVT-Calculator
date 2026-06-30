@@ -38,7 +38,7 @@ Known backend solarHour failures: 15
 
 ## Live Deployed Industry Matrix
 
-`validation/live_industry_matrix.spec.mjs` checks the deployed GitHub Pages frontend at `https://coolsheet-pvt.github.io/` against the live Render backend. It runs every implemented industry for Sydney and Melbourne, and also compares Sydney live outputs against the local frontend using the same live weather source.
+`validation/browser/live_industry_matrix.spec.mjs` checks the deployed GitHub Pages frontend at `https://coolsheet-pvt.github.io/` against the live Render backend. It runs every implemented industry for Sydney and Melbourne, and also compares Sydney live outputs against the local frontend using the same live weather source.
 
 Industries covered:
 
@@ -99,11 +99,11 @@ Seven locked PVGIS/PVlib TMY fixtures were added under `validation/fixtures/weat
 - Darwin
 - Hobart
 
-Each fixture contains 8,760 hourly records and stored annual DNI/DHI/GHI/ambient-temperature checksums. `validation/test_weather_fixtures.mjs` verifies metadata, source labelling, location/timezone fields, field presence, finite values, `solarHour`, hour range, and checksum stability.
+Each fixture contains 8,760 hourly records and stored annual DNI/DHI/GHI/ambient-temperature checksums. `validation/unit/test_weather_fixtures.mjs` verifies metadata, source labelling, location/timezone fields, field presence, finite values, `solarHour`, hour range, and checksum stability.
 
 ## Phase 4: Hybrid Golden Reference
 
-The golden/reference test uses `validation/reference_summary.json`, which was generated from pvlib, to validate:
+The golden/reference test uses `validation/reference/reference_summary.json`, which was generated from pvlib, to validate:
 
 - isotropic POA annual yield
 - PV-only annual kWh
@@ -158,7 +158,7 @@ The browser smoke test also injects deliberately wrong rounded DOM text and conf
 
 ## Phase 8: PVT Equation Locks
 
-`validation/test_pvt_models.mjs` protects Model A/B by checking source markers and locked numeric cases. No Model A/B equation or coefficient was changed.
+`validation/unit/test_pvt_models.mjs` protects Model A/B by checking source markers and locked numeric cases. No Model A/B equation or coefficient was changed.
 
 ## Phase 9: Broader Tests
 

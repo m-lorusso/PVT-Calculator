@@ -1,6 +1,6 @@
 // Assertion-based unit tests for CoolSheet's solar-geometry formulas.
 // Verbatim copy of app.js TiltedSurfaceRadiation (lines 608-665). Run:
-//   node validation/test_geometry.mjs    (exit code 0 = all pass)
+//   node validation/unit/test_geometry.mjs    (exit code 0 = all pass)
 class TiltedSurfaceRadiation {
   constructor(latitude, longitude, tiltAngle, surfaceAzimuth, albedo = 0.2){
     this.latitude=latitude; this.longitude=longitude; this.tiltAngle=tiltAngle;

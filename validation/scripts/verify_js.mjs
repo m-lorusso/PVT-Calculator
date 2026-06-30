@@ -71,7 +71,7 @@ function solarHour(dayN, clockHour0, lon, stdMeridian){
 const cities = ["sydney","melbourne","perth"];
 const out = {};
 for (const c of cities){
-  const path = `validation/tmy_${c}.json`;
+  const path = `validation/fixtures/tmy/tmy_${c}.json`;
   if (!fs.existsSync(path)){ console.error("missing", path); continue; }
   const data = JSON.parse(fs.readFileSync(path,"utf8"));
   const { lat, lon, tilt, albedo, eta, area, records } = data;

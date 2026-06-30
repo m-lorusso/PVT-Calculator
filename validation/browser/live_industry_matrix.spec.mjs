@@ -7,7 +7,7 @@ const LIVE_BASE_URL = process.env.LIVE_BASE_URL || "https://coolsheet-pvt.github
 const LOCAL_BASE_URL = process.env.LOCAL_BASE_URL || pathToFileURL(path.resolve("index.html")).href;
 const RUN_LOCAL_COMPARISON = process.env.LIVE_MATRIX_SKIP_LOCAL !== "1";
 const STRICT_SOLAR_HOUR = process.env.LIVE_MATRIX_STRICT_SOLARHOUR === "1";
-const REPORT_DIR = path.resolve("validation", "live-results");
+const REPORT_DIR = path.resolve("validation", "reports", "live-results");
 const REPORT_PATH = path.join(REPORT_DIR, "live-industry-matrix.json");
 
 const CITY_DEFINITIONS = [

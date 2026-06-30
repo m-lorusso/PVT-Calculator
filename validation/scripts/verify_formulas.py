@@ -9,11 +9,16 @@ This mirrors exactly what server.py feeds the front-end (dayN, local-clock hourN
 """
 import json
 import sys
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import pvlib
 from zoneinfo import ZoneInfo
 from timezonefinder import TimezoneFinder
+
+ROOT = Path(__file__).resolve().parents[2]
+TMY_OUT_DIR = ROOT / "validation" / "fixtures" / "tmy"
+REFERENCE_OUT_DIR = ROOT / "validation" / "reference"
 
 CITIES = {
     "Sydney":    (-33.8698, 151.2083),
@@ -93,13 +98,15 @@ def main():
             "n_records": len(records),
             "annual_ghi_kwh_m2": round(float(ghi.sum())/1000.0, 1),
         }
-        with open(f"validation/tmy_{city.lower()}.json", "w") as fh:
+        TMY_OUT_DIR.mkdir(parents=True, exist_ok=True)
+        with open(TMY_OUT_DIR / f"tmy_{city.lower()}.json", "w", encoding="utf-8") as fh:
             json.dump({"city": city, "lat": lat, "lon": lon, "tz": tz_name,
                        "tilt": TILT, "albedo": ALBEDO, "eta": ETA, "area": AREA,
                        "records": records}, fh)
 
     print(json.dumps(summary, indent=2))
-    with open("validation/reference_summary.json", "w") as fh:
+    REFERENCE_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(REFERENCE_OUT_DIR / "reference_summary.json", "w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=2)
 
 

@@ -1,8 +1,8 @@
 // Offline checks for locked PVGIS TMY weather fixtures.
-// Run: node validation/test_weather_fixtures.mjs
+// Run: node validation/unit/test_weather_fixtures.mjs
 import fs from "node:fs";
 
-const FIXTURE_DIR = new URL("./fixtures/weather/", import.meta.url);
+const FIXTURE_DIR = new URL("../fixtures/weather/", import.meta.url);
 const REQUIRED = ["sydney","melbourne","brisbane","perth","adelaide","darwin","hobart"];
 const NUMERIC_FIELDS = ["dayN","hourN","solarHour","dni","dhi","ghi","ta","vwind"];
 const sum = (records, key) => records.reduce((acc, rec) => acc + (Number(rec[key]) || 0), 0) / 1000;

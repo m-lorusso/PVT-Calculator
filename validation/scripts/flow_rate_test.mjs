@@ -1,7 +1,7 @@
 // Flow-rate sweep: does slowing the coolant flow raise the outlet water temperature?
 // Exercises the REAL supply loop (Model A linear + Model B ISO 9806) copied VERBATIM
 // from app.js. Read/test only — the thermal models are not modified.
-// Run: node validation/flow_rate_test.mjs
+// Run: node validation/scripts/flow_rate_test.mjs
 import fs from "node:fs";
 
 // ---- VERBATIM TiltedSurfaceRadiation (app.js 608-665) ----
@@ -71,7 +71,7 @@ const isoEta0=0.762, isoA1=3.93, isoA2=0.0095, isoA3=0, isoA4=0, isoA6=0, isoA8=
 const SIGMA=5.67e-8;
 const U_WIND=0; // fixture has no wind; Model B defaults a3=a6=0 so this is irrelevant there
 
-const data=JSON.parse(fs.readFileSync("validation/tmy_sydney.json","utf8"));
+const data=JSON.parse(fs.readFileSync("validation/fixtures/tmy/tmy_sydney.json","utf8"));
 const met=data.records.map(r=>({...r, hourN:(r.hourN>=1&&r.hourN<=24)?r.hourN-1:r.hourN}));
 const mains=mainsByDay(met,data.lat);
 const calc=new TiltedSurfaceRadiation(data.lat,data.lon,data.tilt,0,data.albedo);

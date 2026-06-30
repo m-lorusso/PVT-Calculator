@@ -1,10 +1,10 @@
 // Group F: reference-link integrity. Extracts every http(s) URL cited in js/app.js
 // and checks each resolves. Browser-like UA; 2xx/3xx = OK. Some sites block bots
 // (403/405) even when the link is fine, so those are reported as REVIEW, not fail.
-// Run: node validation/check_links.mjs
+// Run: node validation/scripts/check_links.mjs
 import fs from "node:fs";
 
-const APP_JS_PATH = new URL("../js/app.js", import.meta.url);
+const APP_JS_PATH = new URL("../../js/app.js", import.meta.url);
 const SRC = fs.readFileSync(APP_JS_PATH, "utf8");
 const urls = [...new Set((SRC.match(/https?:\/\/[^\s"'`)]+/g) || [])
   .map(u => u.replace(/[.,);]+$/, "")))]

@@ -79,7 +79,7 @@
         <div class="step-num">1</div>
         <h3>CER Data</h3>
         <div class="step-copy">
-          Monthly cold water values come from the local CER TRNSYS deck files in <code>validation/</code>.
+          Monthly cold water values come from the local CER TRNSYS deck files in <code>validation/fixtures/cer/</code>.
         </div>
       </div>
       <div class="how-step">
@@ -129,7 +129,7 @@
     <h2>Source</h2>
     <div class="provenance">
       <p>
-        CER reference values were extracted from the local TRNSYS deck files in <code>validation/</code>:
+        CER reference values were extracted from the local TRNSYS deck files in <code>validation/fixtures/cer/</code>:
         <code>zone1_NW_Domestic.inc</code>, <code>zone2_NW_Domestic.inc</code>, <code>zone3_NW_Domestic.inc</code>,
         <code>zone4_NW_Domestic.inc</code>, and <code>ZONEHP5_Au_Domestic.inc</code>.
       </p>
@@ -160,11 +160,11 @@
 
 <script>
 const CER_MAINS_TEMP = {
-  zone1_rockhampton:  { lat: -23.4, lon: 150.51, label: "Zone 1 - Rockhampton", file: "validation/zone1_NW_Domestic.inc", monthly: [28,28,27,25,23,20,20,21,24,26,28,28] },
-  zone2_alicesprings: { lat: -23.5, lon: 133.88, label: "Zone 2 - Alice Springs", file: "validation/zone2_NW_Domestic.inc", monthly: [29,27,24,20,14,11,9,12,18,23,26,28] },
-  zone3_sydney:       { lat: -33.4, lon: 151.21, label: "Zone 3 - Sydney", file: "validation/zone3_NW_Domestic.inc", monthly: [23,23,21,18,15,12,11,12,15,19,21,22] },
-  zone4_melbourne:    { lat: -37.8, lon: 144.97, label: "Zone 4 - Melbourne", file: "validation/zone4_NW_Domestic.inc", monthly: [20,20,18,15,11,9,8,10,12,15,17,19] },
-  zone5_canberra:     { lat: -35.3, lon: 149.13, label: "Zone 5 - Canberra", file: "validation/ZONEHP5_Au_Domestic.inc", monthly: [18,18,19,15,13,9,5,5,7,8,12,16] }
+  zone1_rockhampton:  { lat: -23.4, lon: 150.51, label: "Zone 1 - Rockhampton", file: "validation/fixtures/cer/zone1_NW_Domestic.inc", monthly: [28,28,27,25,23,20,20,21,24,26,28,28] },
+  zone2_alicesprings: { lat: -23.5, lon: 133.88, label: "Zone 2 - Alice Springs", file: "validation/fixtures/cer/zone2_NW_Domestic.inc", monthly: [29,27,24,20,14,11,9,12,18,23,26,28] },
+  zone3_sydney:       { lat: -33.4, lon: 151.21, label: "Zone 3 - Sydney", file: "validation/fixtures/cer/zone3_NW_Domestic.inc", monthly: [23,23,21,18,15,12,11,12,15,19,21,22] },
+  zone4_melbourne:    { lat: -37.8, lon: 144.97, label: "Zone 4 - Melbourne", file: "validation/fixtures/cer/zone4_NW_Domestic.inc", monthly: [20,20,18,15,11,9,8,10,12,15,17,19] },
+  zone5_canberra:     { lat: -35.3, lon: 149.13, label: "Zone 5 - Canberra", file: "validation/fixtures/cer/ZONEHP5_Au_Domestic.inc", monthly: [18,18,19,15,13,9,5,5,7,8,12,16] }
 };
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];

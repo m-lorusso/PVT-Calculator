@@ -10,10 +10,11 @@ Challenges, per city (Sydney/Melbourne/Perth), using identical PVGIS-ERA5 data:
   5. Hourly peak-timing shift caused by clock-vs-solar time
   6. PV: constant-eta vs temperature-corrected (pvwatts) annual delta
 
-Outputs validation/deep_results.json and prints a readable report.
-Re-run: python validation/deep_validation.py   (re-fetches PVGIS; ~30s)
+Outputs validation/reference/deep_results.json and prints a readable report.
+Re-run: python validation/scripts/deep_validation.py   (re-fetches PVGIS; ~30s)
 """
 import json, math, sys
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import pvlib
@@ -26,6 +27,8 @@ CITIES = {"Sydney": (-33.8698, 151.2083),
 TILT, ALBEDO, ETA, AREA = 30.0, 0.2, 0.20, 20.0
 _tf = TimezoneFinder()
 D2R = math.pi / 180.0
+ROOT = Path(__file__).resolve().parents[2]
+REFERENCE_OUT_DIR = ROOT / "validation" / "reference"
 
 
 # ----- app.js formulas, re-implemented exactly (clock hour as solar time) -----
@@ -157,7 +160,8 @@ def main():
         }
 
     print(json.dumps(out, indent=2))
-    with open("validation/deep_results.json", "w") as fh:
+    REFERENCE_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(REFERENCE_OUT_DIR / "deep_results.json", "w", encoding="utf-8") as fh:
         json.dump(out, fh, indent=2)
 
 

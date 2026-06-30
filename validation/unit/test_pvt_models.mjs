@@ -3,7 +3,7 @@
 // propose or apply coefficient changes.
 import fs from "node:fs";
 
-const APP = fs.readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+const APP = fs.readFileSync(new URL("../../js/app.js", import.meta.url), "utf8");
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 let pass = 0, fail = 0;
 function ok(name, cond, detail=""){

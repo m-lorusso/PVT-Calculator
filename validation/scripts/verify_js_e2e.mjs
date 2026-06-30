@@ -38,7 +38,7 @@ const isFiniteNumber = (x) => typeof x === "number" && Number.isFinite(x);
 const PVLIB_ISO = { sydney: 7288.6, melbourne: 7356.3, perth: 8506.8 }; // reference annual kWh
 const rows = [];
 for (const c of ["sydney","melbourne","perth"]){
-  const d = JSON.parse(fs.readFileSync(`validation/backend_${c}.json`,"utf8"));
+  const d = JSON.parse(fs.readFileSync(`validation/fixtures/backend/backend_${c}.json`,"utf8"));
   const calc = new TiltedSurfaceRadiation(d.lat, d.lon, d.tilt, 0, d.albedo);
   let sumOld=0, sumNew=0;
   for (const raw of d.records){
