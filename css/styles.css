@@ -124,6 +124,8 @@ body.testing-mode .kwater-label{display:inline;}
 .recommended-size-input-row b{font-size:15px;color:#536a83;}
 .recommended-size-answer{border-color:#9ac9e8;background:#eaf6ff;}
 .recommended-size-answer strong{font-size:24px;color:#0d5b78;}
+.recommended-size-warn{margin-top:10px;padding:9px 12px;border:1px solid #e6c35a;border-radius:7px;background:#fdf6e3;color:#6b4e12;font-size:12px;line-height:1.45;}
+.recommended-size-warn[hidden]{display:none;}
 .recommended-size-note{margin-top:10px;font-size:12px;color:#5c6d78;line-height:1.4;}
 .energy-flow-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0;}
 .energy-flow-group{padding:13px;border:1px solid #d4e1dc;border-radius:10px;background:rgba(255,255,255,0.72);}

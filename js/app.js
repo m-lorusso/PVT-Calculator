@@ -1,5 +1,10 @@
 // Application logic for the Annual PVT Calculator (extracted from index.html).
 // Loaded at the end of <body>, after Chart.js and bc_aus_zone_constants.js.
+
+// Single source of truth for the app version shown in the header + PDF/report.
+// Keep in sync with the ?v= cache-bust query on css/js in index.html.
+const APP_VERSION = "12.8";
+
 // ================================================================
 //  DETAILS ANIMATION — replay slideDown every time a panel opens
 // ================================================================
@@ -374,7 +379,7 @@ function buildPdfTemplateDocument(){
   const industryLabel = getSelectedOptionText("industrySelect") || "None";
   const profileLabel = getSelectedOptionText("profileType") || "N/A";
   const reportFilename = buildReportFilename(locationName);
-  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 12.7";
+  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || `Version ${APP_VERSION}`;
   const weatherRecords = Array.isArray(CURRENT_MET) ? CURRENT_MET.length : 0;
   const timezoneText = CURRENT_TZ ? getTimezoneDisplay(CURRENT_TZ) : "N/A";
   const mainsText = CURRENT_MAINS
@@ -3267,8 +3272,8 @@ function buildMonthlyCoverageStrip(supplyMonthly, demandMonthly, title="Monthly 
     const by = y(ratio);
     const bh = (m.top + ch) - by;
     const labelY = Math.max(m.top + 12, by - 5);
-    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(1,bh).toFixed(1)}" fill="#2f80d1" opacity="0.78"/>
-      <text x="${(bx+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="9" fill="#1b4f83">${fmtPct(ratio)}</text>`;
+    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(1,bh).toFixed(1)}" fill="#1565c0" opacity="0.82"/>
+      <text x="${(bx+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="11" fill="#1b4f83">${fmtPct(ratio)}</text>`;
   }).join("");
   const xTicks = MONTH_NAMES.map((name, i) =>
     `<text x="${(x(i)+barW/2).toFixed(1)}" y="${height-m.bottom+18}" text-anchor="middle" font-size="10" fill="#333">${name}</text>`
@@ -3279,7 +3284,7 @@ function buildMonthlyCoverageStrip(supplyMonthly, demandMonthly, title="Monthly 
       <line x1="${m.left}" y1="${m.top+ch}" x2="${width-m.right}" y2="${m.top+ch}" stroke="#667"/>
       ${bars}
       ${xTicks}
-      <text x="18" y="${m.top+ch/2}" text-anchor="middle" font-size="11" fill="#2f80d1" transform="rotate(-90 18 ${m.top+ch/2})">PV / demand</text>
+      <text x="18" y="${m.top+ch/2}" text-anchor="middle" font-size="11" fill="#1565c0" transform="rotate(-90 18 ${m.top+ch/2})">PV / demand</text>
     </svg></div>`;
 }
 
@@ -3338,6 +3343,17 @@ function buildIndustryPerformanceSummary(opts){
     </div>`;
 }
 
+// Caveat shown when the user targets more coverage than they already have.
+// Coverage has diminishing returns (extra collectors add unused midday surplus
+// without storage), so linear area-scaling under-estimates the real design size.
+function recommendedSizeCaveatHtml(targetPct, currentCoveragePct){
+  if (!isFiniteNumber(targetPct) || !isFiniteNumber(currentCoveragePct) || currentCoveragePct <= 0) return "";
+  if (targetPct > currentCoveragePct + 1){
+    return `\u26A0 Target is above your current ${currentCoveragePct.toFixed(0)}% coverage, so treat this as an optimistic lower bound &mdash; beyond current coverage, extra collectors mostly add midday surplus heat that goes unused without storage. Reaching high coverage usually needs heat storage, not just more area.`;
+  }
+  return "";
+}
+
 function buildRecommendedSystemSizeBox(opts){
   const areaM2 = Number(opts?.areaM2);
   const heatCoverage = Number(opts?.heatCoverageFraction);
@@ -3356,13 +3372,14 @@ function buildRecommendedSystemSizeBox(opts){
   const defaultAreaText = isFiniteNumber(defaultArea)
     ? `${defaultArea.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00B2`
     : "Not available";
+  const defaultCaveat = recommendedSizeCaveatHtml(defaultTargetPct, isFiniteNumber(heatCoverage) ? heatCoverage * 100 : NaN);
 
   return `
     <div class="recommended-size-box">
       <div class="recommended-size-head">
         <div>
-          <span>Recommended system size</span>
-          <small>Choose a target heat coverage to estimate required area</small>
+          <span>Rough system-size guide</span>
+          <small>Pick a target heat coverage for a ballpark collector area</small>
         </div>
       </div>
       <div class="recommended-size-grid">
@@ -3386,11 +3403,12 @@ function buildRecommendedSystemSizeBox(opts){
           </div>
         </label>
         <div class="recommended-size-answer">
-          <span>Estimated area required</span>
+          <span>Rough area guide</span>
           <strong data-recommended-size-output>${defaultAreaText}</strong>
         </div>
       </div>
-      <div class="recommended-size-note">Estimate assumes heat coverage scales roughly with collector area. Hourly demand timing, storage, and unused heat can change the final design size.</div>
+      <div class="recommended-size-warn" data-recommended-size-warn${defaultCaveat ? "" : " hidden"}>${defaultCaveat}</div>
+      <div class="recommended-size-note">Rough guide only: it assumes heat coverage scales linearly with collector area. In reality coverage has diminishing returns &mdash; hourly demand timing, storage and unused surplus heat all change the real design size.</div>
     </div>`;
 }
 
@@ -3401,13 +3419,24 @@ function updateRecommendedSizeTarget(input){
 
   const areaM2 = Number(input.dataset.currentArea);
   const heatCoverage = Number(input.dataset.currentCoverage);
-  const targetPct = clamp(Number(input.value), 1, 100);
+  const raw = Number(input.value);
+  const targetPct = clamp(raw, 1, 100);
+  // Correct genuinely out-of-range entries (e.g. "500") without disrupting mid-typing.
+  if (isFiniteNumber(raw) && raw !== targetPct) input.value = targetPct;
+
+  const warn = box?.querySelector?.("[data-recommended-size-warn]");
   if (!isFiniteNumber(areaM2) || areaM2 <= 0 || !isFiniteNumber(heatCoverage) || heatCoverage <= 1e-6 || !isFiniteNumber(targetPct)){
     output.textContent = "Not available";
+    if (warn){ warn.innerHTML = ""; warn.hidden = true; }
     return;
   }
   const needed = areaM2 * (targetPct / 100) / heatCoverage;
   output.textContent = `${needed.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00B2`;
+  if (warn){
+    const caveat = recommendedSizeCaveatHtml(targetPct, heatCoverage * 100);
+    warn.innerHTML = caveat;
+    warn.hidden = !caveat;
+  }
 }
 
 function buildIndustryEnergyFlowSummary(opts){
@@ -4890,13 +4919,21 @@ function buildIndustryChartSet(opts){
   const thermalMax = opts.sharedScale ? commonMax : Math.max(...[...opts.pvtMonthly, ...opts.thermMonthly].filter(isFiniteNumber), 0.01);
   const chartSupply = buildSupplyDemandLineChart(opts.pvtMonthly, opts.thermMonthly,
     opts.supplyTitle || "Monthly PVT Thermal Supply vs Thermal Demand", 820, 260, {sameScale:true, fixedMax:thermalMax});
+  // Only show the PV/demand coverage strip for industries that actually model
+  // electrical demand. Hot-water-only models (e.g. commercial laundry) have zero
+  // electrical demand, so the strip would otherwise be a meaningless flat row of 0%.
+  const elecDemandTotal = (opts.elecMonthly || [])
+    .reduce((sum, v) => sum + (isFiniteNumber(v) ? Math.max(0, v) : 0), 0);
+  const coverageStrip = elecDemandTotal > 1e-6
+    ? buildMonthlyCoverageStrip(opts.pvMonthly, opts.elecMonthly)
+    : "";
   const chartElecSupply = buildSupplyDemandLineChart(opts.pvMonthly, opts.elecMonthly,
     "Monthly PV Electrical Supply vs Electrical Demand", 820, 260, {
       supplyColor:"#1565c0", demandColor:"#8e24aa",
       supplyLabel:"PV Electrical Supply", demandLabel:"Electrical Demand",
       leftAxisLabel:"PV kWh", rightAxisLabel:"Demand kWh",
       sameScale:false
-    }) + buildMonthlyCoverageStrip(opts.pvMonthly, opts.elecMonthly);
+    }) + coverageStrip;
   return buildIndustryChartGroups(chartThermal, chartSupply, chartElec, chartElecSupply);
 }
 
@@ -6620,6 +6657,11 @@ if (_sharedScenarioApplied){
   document.getElementById("modelBParams").style.display = modelBSelected ? "block" : "none";
 }
 onTestingModeChange();
+// Header version label comes from APP_VERSION so it (and the PDF) update in one place.
+{
+  const versionLabel = document.getElementById("appVersionLabel");
+  if (versionLabel) versionLabel.textContent = `Version ${APP_VERSION}`;
+}
 document.getElementById("btnShareLink")?.addEventListener("click", copyShareLink);
 document.getElementById("btnSummaryCsv")?.addEventListener("click", downloadSummaryCsv);
 document.querySelectorAll('input[name="thermalModel"]').forEach(radio => {
