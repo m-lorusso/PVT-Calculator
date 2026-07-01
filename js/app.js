@@ -1460,6 +1460,12 @@ function isMonToFriDay(dayN){
   return ((d - 1) % 7) <= 4;
 }
 
+function hourIndexFromHourN(hourN){
+  const h = Math.floor(Number(hourN));
+  if (!Number.isFinite(h)) return 0;
+  return Math.max(0, Math.min(23, h));
+}
+
 // ================================================================
 //  HOTEL DEMAND MODEL
 // ================================================================
@@ -1493,6 +1499,14 @@ const HOTEL_MONTHLY_FACTORS = {
 const HOTEL_ELECTRICAL_KWH_PER_UNIT = 15.0;
 const HOTEL_ELECTRICAL_HOURLY  = [3,3,3,3,3,3, 4,5,6,5,5,5, 5,5,5,5,5,6, 7,7,6,5,4,3];
 const HOTEL_ELECTRICAL_MONTHLY = [1.05,1.05,1.00,0.95,0.95,1.00, 1.00,0.95,0.95,1.00,1.05,1.05];
+const HOTEL_ELECTRICAL_WEATHER_PARAMS = {
+  coolingBaseC: 22,
+  heatingBaseC: 18,
+  coolingPerDegC: 0.035,
+  heatingPerDegC: 0.018,
+  minFactor: 0.65,
+  maxFactor: 1.90
+};
 // Aquatic-centre Phase C economics copied from Evan's working assumptions.
 const PVT_CAPEX_PV_PER_W = 0.25;
 const PVT_CAPEX_THERMAL_PER_W = 0.40;
@@ -1608,7 +1622,7 @@ const EVAP_LATENT_KWH_PER_KG = 0.680;
 
 // Per-process hourly weight considering profile type
 function hotelProcessWeight(processKey, hourN, dayN, monthIdx, profileType){
-  const h = Math.floor(hourN);
+  const h = hourIndexFromHourN(hourN);
   const hWeights = HOTEL_HOURLY_WEIGHTS[processKey];
   const mFactors = HOTEL_MONTHLY_FACTORS[processKey];
   if (!hWeights || !mFactors) return 1;
@@ -1640,6 +1654,32 @@ function hotelProcessWeightSum(processKey, profileType, met){
     total += hotelProcessWeight(processKey, r.hourN, r.dayN, mIdx, profileType);
   }
   return total;
+}
+
+function calcHotelElectricalWeatherFactor(ambientC){
+  if (!isFiniteNumber(ambientC)) return 1;
+  const p = HOTEL_ELECTRICAL_WEATHER_PARAMS;
+  const coolingDeg = Math.max(0, ambientC - p.coolingBaseC);
+  const heatingDeg = Math.max(0, p.heatingBaseC - ambientC);
+  return clamp(
+    1 + coolingDeg * p.coolingPerDegC + heatingDeg * p.heatingPerDegC,
+    p.minFactor,
+    p.maxFactor
+  );
+}
+
+function calcHotelElectricalHourlyDemand(occupiedRoomNights, met){
+  const totalElecDemandKWh = Math.max(0, Number(occupiedRoomNights) || 0) * HOTEL_ELECTRICAL_KWH_PER_UNIT;
+  const weights = (met || []).map(r => {
+    const h = hourIndexFromHourN(r?.hourN);
+    const mIdx = monthFromDayN(r?.dayN) - 1;
+    const hourly = HOTEL_ELECTRICAL_HOURLY[h] || 1;
+    const monthly = HOTEL_ELECTRICAL_MONTHLY[mIdx] || 1;
+    return hourly * monthly * calcHotelElectricalWeatherFactor(r?.ta);
+  });
+  const weightSum = weights.reduce((sum, value) => sum + Math.max(0, value || 0), 0);
+  if (!(weightSum > 0)) return weights.map(() => 0);
+  return weights.map(w => totalElecDemandKWh * Math.max(0, w || 0) / weightSum);
 }
 
 // Hotel daily shape chart (stacked area, 24-hour profile)
@@ -1832,7 +1872,7 @@ function getAquaticPoolAreaInputs(){
 }
 
 function getAquaticSchedule(profileType, dayN, hourN){
-  const h = Math.floor(hourN);
+  const h = hourIndexFromHourN(hourN);
   const weekday = isMonToFriDay(dayN);
   const hours = profileType === "mon_fri" ? AQUATIC_WEEKDAY_HOURS : AQUATIC_DEFAULT_HOURS;
   const openNow = h >= hours.openStart && h < hours.openEnd && (profileType !== "mon_fri" || weekday);
@@ -2084,7 +2124,7 @@ function calcDairyHourlyDemand(throughput_L, profileType, selectedKeys, met, mai
 
   for (const r of met){
     const mIdx = monthFromDayN(r.dayN) - 1;
-    const h    = r.hourN;
+    const h    = hourIndexFromHourN(r.hourN);
     const seas = seasonal[mIdx] ?? 1;
     const Tm   = (mains?.byDay?.[r.dayN]) ?? (mains?.annualAvgC ?? 15);
     const dayOn = 1;
@@ -2124,7 +2164,7 @@ function calcBreweryHourlyDemand(throughput_L, profileType, selectedKeys, met, m
 
   for (const r of met){
     const mIdx = monthFromDayN(r.dayN) - 1;
-    const h    = r.hourN;
+    const h    = hourIndexFromHourN(r.hourN);
     const seas = seasonal[mIdx] ?? 1;
     const Tm   = (mains?.byDay?.[r.dayN]) ?? (mains?.annualAvgC ?? 15);
     const dayOn = 1;
@@ -2714,6 +2754,7 @@ function buildHotelModelBasisHtml(){
       <tr><td>Laundry</td><td>${H.laundry.kWhPerUnit.toFixed(2)} kWh/room-night (~100 L/room)</td><td>${src("SA Water", saWaterHref)}</td></tr>
       <tr><td>Pool heating (optional)</td><td>${H.pool_heating.kWhPerUnit.toFixed(2)} kWh/room-night</td><td>${src("NABERS Hotels rules", nabersRules)}</td></tr>
       <tr><td>Electrical benchmark</td><td>${HOTEL_ELECTRICAL_KWH_PER_UNIT.toFixed(1)} kWh/room-night</td><td>${src("NABERS Energy", nabersHref)}</td></tr>
+      <tr><td>Electrical profile</td><td>Daily profile x monthly occupancy x weather factor</td><td>Cooling degree-hours above ${HOTEL_ELECTRICAL_WEATHER_PARAMS.coolingBaseC}&deg;C and heating degree-hours below ${HOTEL_ELECTRICAL_WEATHER_PARAMS.heatingBaseC}&deg;C reshape timing while preserving the annual benchmark.</td></tr>
     </table>
     <p class="note" style="margin:10px 0 0;">Note: Australian hotel benchmarking (NABERS) reports whole-of-building energy/water intensity rather than per-process kWh, so the domestic-hot-water figure is set to the SA Water / NABERS-implied ~3 kWh per guest-night (about 4.5 kWh per room-night at typical occupancy). ${src("NABERS Hotels (rules v4.3)", nabersRules)}</p>`;
 }
@@ -3196,6 +3237,49 @@ function buildSupplyDemandLineChart(pvtMonthly, demandMonthly, title, width=820,
       <text x="${m.left+194}" y="${height-m.bottom+40}" font-size="11" fill="#333">${demandLabel}</text>
       <text x="20" y="${m.top+ch/2}" text-anchor="middle" font-size="11" fill="${supplyColor}" transform="rotate(-90 20 ${m.top+ch/2})">${leftAxisLabel}</text>
       <text x="${width-20}" y="${m.top+ch/2}" text-anchor="middle" font-size="11" fill="${demandColor}" transform="rotate(90 ${width-20} ${m.top+ch/2})">${rightAxisLabel}</text>
+    </svg></div>`;
+}
+
+function buildMonthlyCoverageStrip(supplyMonthly, demandMonthly, title="Monthly PV supply / electrical demand"){
+  const width = 820, height = 150;
+  const m = {top:28,right:24,bottom:36,left:56};
+  const cw = width - m.left - m.right, ch = height - m.top - m.bottom;
+  const ratios = MONTH_NAMES.map((_, i) => {
+    const supply = Math.max(0, Number(supplyMonthly?.[i]) || 0);
+    const demand = Math.max(0, Number(demandMonthly?.[i]) || 0);
+    return demand > 1e-9 ? supply / demand : 0;
+  });
+  const axisMax = Math.max(1, ...ratios);
+  const maxRatio = axisMax * 1.08;
+  const x = i => m.left + (i / 12) * cw + (cw / 12) * 0.16;
+  const y = v => m.top + ch * (1 - Math.min(v, maxRatio) / maxRatio);
+  const barW = (cw / 12) * 0.68;
+  const fmtPct = v => `${(v * 100).toFixed(0)}%`;
+  const ticks = [0, 0.5, 1].filter(v => v <= maxRatio);
+  if (axisMax > 1.05) ticks.push(axisMax);
+  const grid = ticks.map(v => {
+    const py = y(v);
+    return `<line x1="${m.left}" y1="${py.toFixed(1)}" x2="${width-m.right}" y2="${py.toFixed(1)}" stroke="#edf1f5"/>
+      <text x="${m.left-8}" y="${(py+4).toFixed(1)}" text-anchor="end" font-size="10" fill="#53606d">${fmtPct(v)}</text>`;
+  }).join("");
+  const bars = ratios.map((ratio, i) => {
+    const bx = x(i);
+    const by = y(ratio);
+    const bh = (m.top + ch) - by;
+    const labelY = Math.max(m.top + 12, by - 5);
+    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(1,bh).toFixed(1)}" fill="#2f80d1" opacity="0.78"/>
+      <text x="${(bx+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="9" fill="#1b4f83">${fmtPct(ratio)}</text>`;
+  }).join("");
+  const xTicks = MONTH_NAMES.map((name, i) =>
+    `<text x="${(x(i)+barW/2).toFixed(1)}" y="${height-m.bottom+18}" text-anchor="middle" font-size="10" fill="#333">${name}</text>`
+  ).join("");
+  return `<div style="margin:10px 0;"><div style="font-size:13px;font-weight:600;margin-bottom:4px;">${title}</div>
+    <svg viewBox="0 0 ${width} ${height}" style="width:100%;border:1px solid #eee;border-radius:6px;background:#fff;">
+      ${grid}
+      <line x1="${m.left}" y1="${m.top+ch}" x2="${width-m.right}" y2="${m.top+ch}" stroke="#667"/>
+      ${bars}
+      ${xTicks}
+      <text x="18" y="${m.top+ch/2}" text-anchor="middle" font-size="11" fill="#2f80d1" transform="rotate(-90 18 ${m.top+ch/2})">PV / demand</text>
     </svg></div>`;
 }
 
@@ -4732,7 +4816,6 @@ function buildIndustryChartSet(opts){
   const all = [...opts.pvtMonthly, ...opts.thermMonthly, ...opts.pvMonthly, ...opts.elecMonthly].filter(isFiniteNumber);
   const commonMax = Math.max(...all, 0.01);
   const thermalMax = opts.sharedScale ? commonMax : Math.max(...[...opts.pvtMonthly, ...opts.thermMonthly].filter(isFiniteNumber), 0.01);
-  const elecMax    = opts.sharedScale ? commonMax : Math.max(...[...opts.pvMonthly, ...opts.elecMonthly].filter(isFiniteNumber), 0.01);
   const chartSupply = buildSupplyDemandLineChart(opts.pvtMonthly, opts.thermMonthly,
     opts.supplyTitle || "Monthly PVT Thermal Supply vs Thermal Demand", 820, 260, {sameScale:true, fixedMax:thermalMax});
   const chartElecSupply = buildSupplyDemandLineChart(opts.pvMonthly, opts.elecMonthly,
@@ -4740,8 +4823,8 @@ function buildIndustryChartSet(opts){
       supplyColor:"#1565c0", demandColor:"#8e24aa",
       supplyLabel:"PV Electrical Supply", demandLabel:"Electrical Demand",
       leftAxisLabel:"PV kWh", rightAxisLabel:"Demand kWh",
-      sameScale:true, fixedMax:elecMax
-    });
+      sameScale:false
+    }) + buildMonthlyCoverageStrip(opts.pvMonthly, opts.elecMonthly);
   return buildIndustryChartGroups(chartThermal, chartSupply, chartElec, chartElecSupply);
 }
 
@@ -5658,21 +5741,7 @@ async function calcAnnualPVT(){
       thermalSectionTitle = tankVolumeLitres > 0 ? "Heat Balance (with storage)" : "Heat Balance (no storage)";
 
       const totalElecDemandKWh = Math.max(0, throughput) * HOTEL_ELECTRICAL_KWH_PER_UNIT;
-      let elecWSum = 0;
-      for (const r of met){
-        const h = Math.floor(r.hourN);
-        const mIdx = monthFromDayN(r.dayN) - 1;
-        elecWSum += (HOTEL_ELECTRICAL_HOURLY[h] || 1) * (HOTEL_ELECTRICAL_MONTHLY[mIdx] || 1);
-      }
-      const electricHourly = [];
-      for (let i = 0; i < met.length; i++){
-        const r = met[i];
-        const h = Math.floor(r.hourN);
-        const mIdx = monthFromDayN(r.dayN) - 1;
-        const w = (HOTEL_ELECTRICAL_HOURLY[h] || 1) * (HOTEL_ELECTRICAL_MONTHLY[mIdx] || 1);
-        const elecDemand = totalElecDemandKWh * (w / Math.max(1, elecWSum));
-        electricHourly.push(elecDemand);
-      }
+      const electricHourly = calcHotelElectricalHourlyDemand(throughput, met);
       const elecBalance = calculateHourlyElectricityBalance(pvElectricHourly, electricHourly, met);
       const elecMetByPv = elecBalance.metByPv;
       const elecUnmet = elecBalance.unmet;
