@@ -126,7 +126,7 @@ Generated data: `fixtures/tmy/tmy_*.json`, `fixtures/backend/backend_*.json`, `r
 Demand-side / industry & economics scripts (added later):
 | File | Purpose | Run |
 |---|---|---|
-| `unit/test_industry.mjs` | Extracts REAL dairy/brewery/aquatic/hotel functions from app.js; checks benchmarks + Q=mcΔT + aquatic physics + hotel per-room-night | `node validation/unit/test_industry.mjs` |
+| `unit/test_industry.mjs` | Extracts REAL dairy/brewery/aquatic/hotel functions from app.js; checks benchmarks + Q=mcΔT + aquatic physics + hotel per-room-night and weather-shaped hotel electricity | `node validation/unit/test_industry.mjs` |
 | `unit/test_economics.mjs` | CRF, NPV annuity, LCOE split, heat-saving conversion, payback | `node validation/unit/test_economics.mjs` |
 | `scripts/check_links.mjs` | Verifies every cited URL in app.js resolves | `node validation/scripts/check_links.mjs` |
 
