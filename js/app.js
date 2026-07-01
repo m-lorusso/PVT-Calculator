@@ -374,7 +374,7 @@ function buildPdfTemplateDocument(){
   const industryLabel = getSelectedOptionText("industrySelect") || "None";
   const profileLabel = getSelectedOptionText("profileType") || "N/A";
   const reportFilename = buildReportFilename(locationName);
-  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 12.5";
+  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 12.6";
   const weatherRecords = Array.isArray(CURRENT_MET) ? CURRENT_MET.length : 0;
   const timezoneText = CURRENT_TZ ? getTimezoneDisplay(CURRENT_TZ) : "N/A";
   const mainsText = CURRENT_MAINS
@@ -3341,34 +3341,29 @@ function buildIndustryPerformanceSummary(opts){
 function buildRecommendedSystemSizeBox(opts){
   const areaM2 = Number(opts?.areaM2);
   const heatCoverage = Number(opts?.heatCoverageFraction);
-  const targets = Array.isArray(opts?.targets) && opts.targets.length ? opts.targets : [0.5, 0.8];
+  const defaultTargetPct = isFiniteNumber(opts?.targetPct) ? clamp(Number(opts.targetPct), 1, 100) : 50;
   const areaText = isFiniteNumber(areaM2)
     ? `${areaM2.toLocaleString(undefined, { maximumFractionDigits: 1 })} m\u00B2`
     : "\u2014";
   const coverageText = isFiniteNumber(heatCoverage)
     ? `${(heatCoverage * 100).toFixed(1)}%`
     : "\u2014";
-  const estimateArea = target => {
+  const estimateArea = targetFraction => {
     if (!isFiniteNumber(areaM2) || areaM2 <= 0 || !isFiniteNumber(heatCoverage) || heatCoverage <= 1e-6) return null;
-    return areaM2 * target / heatCoverage;
+    return areaM2 * targetFraction / heatCoverage;
   };
-  const rows = targets.map(target => {
-    const needed = estimateArea(target);
-    const neededText = isFiniteNumber(needed)
-      ? `${needed.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00B2`
-      : "Not available";
-    return `
-      <div class="recommended-size-row">
-        <span>Area needed for ${(target * 100).toFixed(0)}% heat coverage</span>
-        <strong>${neededText}</strong>
-      </div>`;
-  }).join("");
+  const defaultArea = estimateArea(defaultTargetPct / 100);
+  const defaultAreaText = isFiniteNumber(defaultArea)
+    ? `${defaultArea.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00B2`
+    : "Not available";
 
   return `
     <div class="recommended-size-box">
       <div class="recommended-size-head">
-        <span>Recommended system size</span>
-        <small>First-order estimate from current heat coverage</small>
+        <div>
+          <span>Recommended system size</span>
+          <small>Choose a target heat coverage to estimate required area</small>
+        </div>
       </div>
       <div class="recommended-size-grid">
         <div class="recommended-size-row">
@@ -3379,10 +3374,40 @@ function buildRecommendedSystemSizeBox(opts){
           <span>Current heat coverage</span>
           <strong>${coverageText}</strong>
         </div>
-        ${rows}
+        <label class="recommended-size-target">
+          <span>Target heat coverage</span>
+          <div class="recommended-size-input-row">
+            <input type="number" min="1" max="100" step="1" value="${defaultTargetPct.toFixed(0)}"
+              data-current-area="${isFiniteNumber(areaM2) ? areaM2 : ""}"
+              data-current-coverage="${isFiniteNumber(heatCoverage) ? heatCoverage : ""}"
+              oninput="updateRecommendedSizeTarget(this)"
+              onchange="updateRecommendedSizeTarget(this)" />
+            <b>%</b>
+          </div>
+        </label>
+        <div class="recommended-size-answer">
+          <span>Estimated area required</span>
+          <strong data-recommended-size-output>${defaultAreaText}</strong>
+        </div>
       </div>
       <div class="recommended-size-note">Estimate assumes heat coverage scales roughly with collector area. Hourly demand timing, storage, and unused heat can change the final design size.</div>
     </div>`;
+}
+
+function updateRecommendedSizeTarget(input){
+  const box = input?.closest?.(".recommended-size-box");
+  const output = box?.querySelector?.("[data-recommended-size-output]");
+  if (!output) return;
+
+  const areaM2 = Number(input.dataset.currentArea);
+  const heatCoverage = Number(input.dataset.currentCoverage);
+  const targetPct = clamp(Number(input.value), 1, 100);
+  if (!isFiniteNumber(areaM2) || areaM2 <= 0 || !isFiniteNumber(heatCoverage) || heatCoverage <= 1e-6 || !isFiniteNumber(targetPct)){
+    output.textContent = "Not available";
+    return;
+  }
+  const needed = areaM2 * (targetPct / 100) / heatCoverage;
+  output.textContent = `${needed.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00B2`;
 }
 
 function buildIndustryEnergyFlowSummary(opts){
