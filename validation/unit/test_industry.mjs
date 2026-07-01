@@ -36,7 +36,7 @@ function extract(name, kind){
 
 const SYMBOLS = [
   ["isFiniteNumber","func"],["clamp","func"],["monthFromDayN","func"],["isMonToFriDay","func"],
-  ["_normW","func"],["normalizeSeasonalFactors","func"],
+  ["hourIndexFromHourN","func"],["_normW","func"],["normalizeSeasonalFactors","func"],
   ["MONTH_DAYS","const"],
   ["DAIRY_SEASONAL","const"],["DAIRY_PROCESS_PARAMS","const"],["DAIRY_ELEC_PARAMS","const"],
   ["BREWERY_SEASONAL","const"],["BREWERY_PROCESS_PARAMS","const"],["BREWERY_ELEC_PARAMS","const"],
@@ -44,14 +44,16 @@ const SYMBOLS = [
   ["AQUATIC_COVER_REDUCTION","const"],["AQUATIC_ELEC_KWH_PER_M2_PER_YEAR","const"],
   ["EVAP_LATENT_KWH_PER_KG","const"],["WATER_CP_KWH_PER_KG_C","const"],
   ["HOTEL_PROCESS_PARAMS","const"],["HOTEL_ELECTRICAL_KWH_PER_UNIT","const"],
+  ["HOTEL_ELECTRICAL_HOURLY","const"],["HOTEL_ELECTRICAL_MONTHLY","const"],["HOTEL_ELECTRICAL_WEATHER_PARAMS","const"],
   ["LAUNDRY_DEFAULTS","const"],["LAUNDRY_PROCESS_STACK_ORDER","const"],
   ["getAnnualAmbientAverage","func"],["getAquaticSchedule","func"],["saturationVaporPressureKPa","func"],
   ["getAquaticRelativeHumidity","func"],
+  ["calcHotelElectricalWeatherFactor","func"],["calcHotelElectricalHourlyDemand","func"],
   ["calcDairyHourlyDemand","func"],["calcBreweryHourlyDemand","func"],["calcAquaticHourlyDemand","func"],
   ["laundryOperatingDayWeight","func"],["calcCommercialLaundryHourlyDemand","func"],
 ];
 const code = SYMBOLS.map(([n,k]) => extract(n,k)).join("\n");
-const mod = new Function(code + "\nreturn {calcDairyHourlyDemand,calcBreweryHourlyDemand,calcAquaticHourlyDemand,calcCommercialLaundryHourlyDemand,DAIRY_PROCESS_PARAMS,BREWERY_PROCESS_PARAMS,DAIRY_ELEC_PARAMS,BREWERY_ELEC_PARAMS,HOTEL_PROCESS_PARAMS,HOTEL_ELECTRICAL_KWH_PER_UNIT,LAUNDRY_DEFAULTS,LAUNDRY_PROCESS_STACK_ORDER,normalizeSeasonalFactors,DAIRY_SEASONAL,MONTH_DAYS,WATER_CP_KWH_PER_KG_C};")();
+const mod = new Function(code + "\nreturn {calcDairyHourlyDemand,calcBreweryHourlyDemand,calcAquaticHourlyDemand,calcCommercialLaundryHourlyDemand,calcHotelElectricalHourlyDemand,calcHotelElectricalWeatherFactor,DAIRY_PROCESS_PARAMS,BREWERY_PROCESS_PARAMS,DAIRY_ELEC_PARAMS,BREWERY_ELEC_PARAMS,HOTEL_PROCESS_PARAMS,HOTEL_ELECTRICAL_KWH_PER_UNIT,LAUNDRY_DEFAULTS,LAUNDRY_PROCESS_STACK_ORDER,normalizeSeasonalFactors,DAIRY_SEASONAL,MONTH_DAYS,WATER_CP_KWH_PER_KG_C};")();
 
 // --- synthetic full-year weather + constant mains so thermal totals are predictable ---
 const MAINS_C = 18;
@@ -122,6 +124,23 @@ console.log("\n# HOTEL  (60,000 occupied room-nights; energy per room-night)");
   ok("DHW = 4.5 kWh/room-night", Math.abs(dhw-4.5)<1e-9, `dhw=${dhw}`);
   near("Annual DHW thermal = room-nights x kWh/unit", RN*dhw, 60000*4.5, 0.01);
   near("Annual electrical = 15 kWh/room-night", RN*mod.HOTEL_ELECTRICAL_KWH_PER_UNIT, 60000*15, 0.01);
+  const hotelMet = [];
+  const monthlyTa = [29,28,25,21,16,13,12,15,18,22,25,28];
+  let dayN = 1;
+  for (let m=0; m<12; m++){
+    for (let d=0; d<mod.MONTH_DAYS[m]; d++, dayN++){
+      for (let h=0; h<24; h++){
+        const diurnal = 3 * Math.sin(2 * Math.PI * (h - 6) / 24);
+        hotelMet.push({dayN, hourN:h, ta: monthlyTa[m] + diurnal});
+      }
+    }
+  }
+  const hotelElec = mod.calcHotelElectricalHourlyDemand(RN, hotelMet);
+  near("Weather-shaped hotel electrical still preserves annual benchmark", sum(hotelElec), RN*mod.HOTEL_ELECTRICAL_KWH_PER_UNIT, 0.01);
+  ok("Hot hotel hours get higher electrical weighting than neutral", mod.calcHotelElectricalWeatherFactor(32) > mod.calcHotelElectricalWeatherFactor(20),
+     `hot=${mod.calcHotelElectricalWeatherFactor(32)} neutral=${mod.calcHotelElectricalWeatherFactor(20)}`);
+  ok("Cold hotel hours get higher electrical weighting than neutral", mod.calcHotelElectricalWeatherFactor(10) > mod.calcHotelElectricalWeatherFactor(20),
+     `cold=${mod.calcHotelElectricalWeatherFactor(10)} neutral=${mod.calcHotelElectricalWeatherFactor(20)}`);
   const totalTh = (dhw+H.kitchen_dishwashing.kWhPerUnit+H.laundry.kWhPerUnit)*RN;
   console.log(`        (info) thermal (DHW+kitchen+laundry) = ${totalTh.toFixed(0)} kWh/yr; was ${((5.5+1.6+1.2)*RN).toFixed(0)} before DHW tune`);
 }
