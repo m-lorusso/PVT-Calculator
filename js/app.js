@@ -374,7 +374,7 @@ function buildPdfTemplateDocument(){
   const industryLabel = getSelectedOptionText("industrySelect") || "None";
   const profileLabel = getSelectedOptionText("profileType") || "N/A";
   const reportFilename = buildReportFilename(locationName);
-  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 12.6";
+  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 12.7";
   const weatherRecords = Array.isArray(CURRENT_MET) ? CURRENT_MET.length : 0;
   const timezoneText = CURRENT_TZ ? getTimezoneDisplay(CURRENT_TZ) : "N/A";
   const mainsText = CURRENT_MAINS
