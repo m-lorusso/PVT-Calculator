@@ -400,6 +400,12 @@ button:disabled{opacity:0.55;cursor:wait;transform:none;box-shadow:none;}
   body{margin:10px;background-size:100% 600px;}
   .wrap{width:100%;max-width:none;}
   .panel{padding:12px;}
+  input:not([type=checkbox]):not([type=radio]),select,button,#downloadLink,.secondary-action,.shared-scenario-link{min-height:44px;font-size:14px;}
+  input[type=checkbox],input[type=radio]{width:18px;height:18px;min-width:18px;min-height:18px;max-height:18px;}
+  .how-it-works-btn,.advanced-settings summary,.formula-details>summary,.footer-details summary{min-height:44px;}
+  .brand-meta label,.tempcorr-toggle,.auto-cost-toggle,.display-controls label,.process-check label,.aquatic-process-label{min-height:44px;align-items:center;}
+  .note a,.footer-note a{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:32px;padding:0 4px;vertical-align:middle;}
+  .mains-quickset input,.mains-month-cell input{min-height:40px;}
   .summary-card-grid,.advanced-grid{grid-template-columns:1fr;}
   .metric-cards,.industry-summary-row,.insight-strip,.recommended-size-grid{grid-template-columns:1fr 1fr;}
   .annual-summary-grid .annual-summary-item{flex-basis:calc(50% - 5px);}
@@ -435,7 +441,7 @@ button:disabled{opacity:0.55;cursor:wait;transform:none;box-shadow:none;}
   .brand-logo-unsw{width:96px;max-height:96px;margin-top:-24px;margin-bottom:-24px;}
   .brand-title{font-size:22px;text-align:left;margin-top:10px;}
   .brand-meta{position:static !important;text-align:left !important;margin-top:10px;}
-  input,select,button,#downloadLink,.secondary-action{min-height:44px;font-size:14px;}
+  input:not([type=checkbox]):not([type=radio]),select,button,#downloadLink,.secondary-action{min-height:44px;font-size:14px;}
   .btns{gap:8px;margin:12px 0;}
   .btns button,#downloadLink,.secondary-action,.detail-toggle{width:100%;text-align:center;justify-content:center;}
   #downloadLink,.secondary-action{margin-top:0;}
