@@ -5255,8 +5255,7 @@ async function calcAnnualPVT(){
       ${flowSuggestionHtml}
       <div class="annual-actions">
         <button type="button" class="detail-toggle" onclick="toggleAnnualDetails(this)" aria-expanded="false">Show detailed results</button>
-        <a class="validation-link" href="${pvgisValidation.url}" target="_blank" rel="noopener">Open PVGIS validation result</a>
-        <a class="validation-link validation-link-secondary" href="${pvgisValidation.toolUrl}" target="_blank" rel="noopener">Open PVGIS tool</a>
+        <a class="validation-link" href="${pvgisValidation.toolUrl}" target="_blank" rel="noopener">Open PVGIS tool</a>
         <span class="note">${pvgisValidationText}</span>
       </div>
       <div class="annual-actions annual-actions-subtle">
