@@ -10,7 +10,7 @@ All offline validation tests passed after the fixes and additions in this phase.
 ```text
 npm test
 PASS: geometry 17/17
-PASS: industry 27/27
+PASS: industry 30/30
 PASS: economics 12/12
 PASS: golden/reference 9/9
 PASS: PVT Model A/B locks 9/9
