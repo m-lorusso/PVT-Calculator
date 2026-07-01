@@ -110,6 +110,15 @@ body.testing-mode .kwater-label{display:inline;}
 .industry-summary-cell{padding:12px 14px;border:1px solid #cfe5d8;border-radius:8px;background:#f8fdfb;}
 .industry-summary-cell span{display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#4f6f5d;font-weight:700;margin-bottom:6px;}
 .industry-summary-cell strong{display:block;font-size:20px;line-height:1.15;color:#12351f;}
+.recommended-size-box{margin:0 0 14px;padding:13px 14px;border:1px solid #c7dde9;border-left:4px solid #2f80d1;border-radius:8px;background:#f7fbff;}
+.recommended-size-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px;}
+.recommended-size-head span{font-size:13px;font-weight:700;color:#12314a;}
+.recommended-size-head small{font-size:12px;color:#647486;line-height:1.35;}
+.recommended-size-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.recommended-size-row{padding:10px;border:1px solid #dbe8f0;border-radius:7px;background:#fff;}
+.recommended-size-row span{display:block;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#536a83;font-weight:700;margin-bottom:5px;}
+.recommended-size-row strong{display:block;font-size:17px;line-height:1.15;color:#102b45;overflow-wrap:anywhere;}
+.recommended-size-note{margin-top:9px;font-size:12px;color:#5c6d78;line-height:1.4;}
 .energy-flow-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0;}
 .energy-flow-group{padding:13px;border:1px solid #d4e1dc;border-radius:10px;background:rgba(255,255,255,0.72);}
 .energy-flow-group.thermal{border-color:#efb17f;background:#fff1e6;}
@@ -353,7 +362,7 @@ button:disabled{opacity:0.55;cursor:wait;transform:none;box-shadow:none;}
   .wrap{width:100%;max-width:none;}
   .panel{padding:12px;}
   .summary-card-grid,.advanced-grid{grid-template-columns:1fr;}
-  .metric-cards,.annual-summary-grid,.industry-summary-row,.insight-strip{grid-template-columns:1fr 1fr;}
+  .metric-cards,.annual-summary-grid,.industry-summary-row,.insight-strip,.recommended-size-grid{grid-template-columns:1fr 1fr;}
   .energy-flow-summary{grid-template-columns:1fr;}
   .industry-chart-grid{grid-template-columns:1fr;}
   .setting-label{grid-template-columns:1fr;align-items:start;gap:6px;}
@@ -425,7 +434,7 @@ button:disabled{opacity:0.55;cursor:wait;transform:none;box-shadow:none;}
 }
 @media (max-width:520px){
   body{margin:6px;}
-  .metric-cards,.annual-summary-grid,.industry-summary-row,.insight-strip{grid-template-columns:1fr;}
+  .metric-cards,.annual-summary-grid,.industry-summary-row,.insight-strip,.recommended-size-grid{grid-template-columns:1fr;}
   .energy-flow-cards{grid-template-columns:1fr;}
   .annual-card-head h3{font-size:20px;}
   .brand-logo-coolsheet{max-height:54px;}
