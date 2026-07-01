@@ -374,7 +374,7 @@ function buildPdfTemplateDocument(){
   const industryLabel = getSelectedOptionText("industrySelect") || "None";
   const profileLabel = getSelectedOptionText("profileType") || "N/A";
   const reportFilename = buildReportFilename(locationName);
-  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 12.4";
+  const reportVersion = document.querySelector(".brand-meta span")?.textContent?.trim() || "Version 12.5";
   const weatherRecords = Array.isArray(CURRENT_MET) ? CURRENT_MET.length : 0;
   const timezoneText = CURRENT_TZ ? getTimezoneDisplay(CURRENT_TZ) : "N/A";
   const mainsText = CURRENT_MAINS
@@ -3338,6 +3338,53 @@ function buildIndustryPerformanceSummary(opts){
     </div>`;
 }
 
+function buildRecommendedSystemSizeBox(opts){
+  const areaM2 = Number(opts?.areaM2);
+  const heatCoverage = Number(opts?.heatCoverageFraction);
+  const targets = Array.isArray(opts?.targets) && opts.targets.length ? opts.targets : [0.5, 0.8];
+  const areaText = isFiniteNumber(areaM2)
+    ? `${areaM2.toLocaleString(undefined, { maximumFractionDigits: 1 })} m\u00B2`
+    : "\u2014";
+  const coverageText = isFiniteNumber(heatCoverage)
+    ? `${(heatCoverage * 100).toFixed(1)}%`
+    : "\u2014";
+  const estimateArea = target => {
+    if (!isFiniteNumber(areaM2) || areaM2 <= 0 || !isFiniteNumber(heatCoverage) || heatCoverage <= 1e-6) return null;
+    return areaM2 * target / heatCoverage;
+  };
+  const rows = targets.map(target => {
+    const needed = estimateArea(target);
+    const neededText = isFiniteNumber(needed)
+      ? `${needed.toLocaleString(undefined, { maximumFractionDigits: 0 })} m\u00B2`
+      : "Not available";
+    return `
+      <div class="recommended-size-row">
+        <span>Area needed for ${(target * 100).toFixed(0)}% heat coverage</span>
+        <strong>${neededText}</strong>
+      </div>`;
+  }).join("");
+
+  return `
+    <div class="recommended-size-box">
+      <div class="recommended-size-head">
+        <span>Recommended system size</span>
+        <small>First-order estimate from current heat coverage</small>
+      </div>
+      <div class="recommended-size-grid">
+        <div class="recommended-size-row">
+          <span>Current area</span>
+          <strong>${areaText}</strong>
+        </div>
+        <div class="recommended-size-row">
+          <span>Current heat coverage</span>
+          <strong>${coverageText}</strong>
+        </div>
+        ${rows}
+      </div>
+      <div class="recommended-size-note">Estimate assumes heat coverage scales roughly with collector area. Hourly demand timing, storage, and unused heat can change the final design size.</div>
+    </div>`;
+}
+
 function buildIndustryEnergyFlowSummary(opts){
   const energyValue = (value) => isFiniteNumber(value) ? `${formatSummaryWhole(value)} kWh/yr` : "\u2014";
   return `
@@ -5473,6 +5520,7 @@ async function calcAnnualPVT(){
           areaM2: A,
           locationName: CURRENT_LOC?.name || "selected location"
         })}
+        ${buildRecommendedSystemSizeBox({ areaM2: A, heatCoverageFraction: solarFraction })}
         <div class="dairy-result-area">
           <div class="dairy-result-head">
             <div class="dairy-intro-card">
@@ -5622,6 +5670,7 @@ async function calcAnnualPVT(){
           areaM2: A,
           locationName: CURRENT_LOC?.name || "selected location"
         })}
+        ${buildRecommendedSystemSizeBox({ areaM2: A, heatCoverageFraction: solarFraction })}
         <div class="industry-top-row">
           <div style="flex:1 1 420px;">
             <h3 style="margin:0 0 8px 0;">Brewery \u2014 ${profileLabels[breweryProfileType]}</h3>
@@ -5820,6 +5869,7 @@ async function calcAnnualPVT(){
           areaM2: A,
           locationName: CURRENT_LOC?.name || "selected location"
         })}
+        ${buildRecommendedSystemSizeBox({ areaM2: A, heatCoverageFraction: solarFraction })}
         <h3>Hotel \u2014 ${hotelProfileLabel}</h3>
         ${buildIndustryEnergyFlowSummary({
           thermalDemandKWh: totalThermalDemandKWh,
@@ -6000,6 +6050,7 @@ async function calcAnnualPVT(){
           areaM2: A,
           locationName: CURRENT_LOC?.name || "selected location"
         })}
+        ${buildRecommendedSystemSizeBox({ areaM2: A, heatCoverageFraction: solarFraction })}
         <h3>Aquatic Centre \u2014 Area-Based Heat Loss Model</h3>
         <div class="process-chip-row" style="margin:0 0 12px;">${processChips}</div>
         ${buildIndustryEnergyFlowSummary({
@@ -6160,6 +6211,7 @@ async function calcAnnualPVT(){
           areaM2: A,
           locationName: CURRENT_LOC?.name || "selected location"
         })}
+        ${buildRecommendedSystemSizeBox({ areaM2: A, heatCoverageFraction: solarFraction })}
         <div class="industry-top-row">
           <div style="flex:1 1 420px;">
             <h3 style="margin:0 0 8px 0;">Commercial Laundry — Hot-Water Washing Demand</h3>
