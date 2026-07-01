@@ -6,7 +6,7 @@
   <title>Annual PVT Calculator</title>
   <meta name="description" content="Estimates annual energy output, savings and payback of photovoltaic-thermal (PVT) solar systems for Australian commercial sites." />
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <link rel="stylesheet" href="css/styles.css?v=12.8" />
+  <link rel="stylesheet" href="css/styles.css?v=13.4" />
   <!-- Chart.js v4.5.1 vendored locally (assets/vendor/) so charts work offline / on flaky wifi. -->
   <script src="assets/vendor/chart.umd.min.js"></script>
   <script src="js/bc_aus_zone_constants.js"></script>
@@ -20,9 +20,23 @@
       <img class="brand-logo brand-logo-unsw" src="assets/unsw-logo.jpg" alt="UNSW logo" />
     </div>
     <h1 class="brand-title">Annual PVT Calculator</h1>
-    <button id="btnHowItWorks" type="button" class="how-it-works-btn">How this calculator works</button>
+    <div class="header-actions">
+      <button id="btnHowItWorks" type="button" class="how-it-works-btn">How this calculator works</button>
+      <div class="validation-orb-wrap" id="validationOrbWrap" hidden>
+        <button id="btnValidationMenu" type="button" class="validation-orb" title="Validation &amp; reference pages" aria-haspopup="true" aria-expanded="false" aria-label="Validation and reference pages">&#10003;</button>
+        <div id="validationPopover" class="validation-popover" role="menu" hidden>
+          <div class="validation-popover-title">Validation &amp; references</div>
+          <a role="menuitem" href="pages/validation.html" target="_blank" rel="noopener" title="BC-Aus vs CER reference, standard +6&deg;F offset">Validation 1 &mdash; CER +6&deg;F</a>
+          <a role="menuitem" href="pages/validation2.html" target="_blank" rel="noopener" title="BC-Aus vs CER reference, no-offset variant">Validation 2 &mdash; CER 0&deg;F</a>
+          <a role="menuitem" href="pages/validation3.html" target="_blank" rel="noopener" title="BC-Aus vs EnergyPlus 0.5 m ground temperatures">Validation 3 &mdash; ground 0.5 m</a>
+          <a role="menuitem" href="pages/validation4.html" target="_blank" rel="noopener" title="BC-Aus vs EnergyPlus 2.0 m ground temperatures">Validation 4 &mdash; ground 2.0 m</a>
+          <a role="menuitem" href="pages/validation5.html" target="_blank" rel="noopener" title="The BC-Aus mains-water formula explained step by step">Validation 5 &mdash; formula</a>
+          <a role="menuitem" href="pages/cer_comparison.html" target="_blank" rel="noopener" title="Interactive CER DomDecks comparison tool">CER comparison tool</a>
+        </div>
+      </div>
+    </div>
     <div class="brand-meta" style="position:absolute;bottom:10px;right:14px;text-align:right;">
-      <span id="appVersionLabel" style="font-size:11px;font-style:italic;color:rgba(255,255,255,0.35);">Version 12.8</span><br/>
+      <span id="appVersionLabel" style="font-size:11px;font-style:italic;color:rgba(255,255,255,0.35);">Version 13.4</span><br/>
       <label style="font-size:11px;color:rgba(255,255,255,0.35);cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-top:4px;">
         <input type="checkbox" id="chkHideMains" style="width:auto;margin:0;cursor:pointer;" onchange="onTestingModeChange();" />
         Testing
@@ -515,10 +529,20 @@
   <!-- Industry Output -->
   <div id="industryOutput" class="panel" style="display:none;margin-top:10px;"></div>
 
-  <p class="footer-note">
-    Weather: <a href="https://re.jrc.ec.europa.eu/pvg_tools/en/" target="_blank" rel="noopener">PVGIS</a> typical meteorological year<br/>
-    Mains water temperature: BC-Aus &mdash; <a href="https://www.osti.gov/biblio/981988" target="_blank" rel="noopener">Burch &amp; Christensen (NREL)</a> refitted to AS/NZS 4234 Australian climate zones
+  <details class="footer-details">
+    <summary>For disclaimer</summary>
+    <div class="footer-details-body">
+      <p><b>About.</b> CoolSheet is an academic research prototype created for a University of New South Wales (UNSW) student thesis, provided free of charge for educational and illustrative purposes. <b>Need to add disclaimer later?</b></p>
+    </div>
+  </details>
+
+  <p class="footer-note footer-fineprint">
+    Weather: <a href="https://re.jrc.ec.europa.eu/pvg_tools/en/" target="_blank" rel="noopener">PVGIS</a> (&copy; European Union, Joint Research Centre) typical meteorological year<br/>
+    Geocoding &amp; map: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)<br/>
+    Mains water temperature: BC-Aus &mdash; <a href="https://www.osti.gov/biblio/981988" target="_blank" rel="noopener">Burch &amp; Christensen (NREL)</a> refitted to AS/NZS 4234 Australian climate zones<br/>
+    Grid emission factors: DCCEEW <a href="https://www.dcceew.gov.au/climate-change/publications/national-greenhouse-accounts-factors-2025" target="_blank" rel="noopener">National Greenhouse Accounts Factors 2025</a> (defaults current as of 2025&ndash;2026)
   </p>
+
   <p class="footer-note" style="margin-top:10px;">
     &copy; 2026 UNSW Sydney &nbsp;&middot;&nbsp;
     <a href="https://docs.google.com/forms/d/e/1FAIpQLSce0xTcsqk8rcy5BInIdqWTnlTXhwKNfoV75qbbov0AbQ0-zA/viewform?embedded=true" target="_blank" rel="noopener" style="color:#5a6a7a;text-decoration:underline;">Feedback</a>
@@ -565,6 +589,6 @@
 
 </div>
 
-<script src="js/app.js?v=12.8"></script>
+<script src="js/app.js?v=13.4"></script>
 </body>
 </html>

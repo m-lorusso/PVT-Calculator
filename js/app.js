@@ -3,7 +3,7 @@
 
 // Single source of truth for the app version shown in the header + PDF/report.
 // Keep in sync with the ?v= cache-bust query on css/js in index.html.
-const APP_VERSION = "12.8";
+const APP_VERSION = "13.4";
 
 // ================================================================
 //  DETAILS ANIMATION — replay slideDown every time a panel opens
@@ -1207,14 +1207,14 @@ function updateMainsDisplay(){
       </table>
       <div class="mains-links" style="margin-top:8px;">
         <a class="mains-link" href="#" onclick="openClimateCharts(event)">View T_mains + Ta charts</a>
-        <a class="mains-link" href="validation.html" target="_blank" rel="noopener" title="BC-Aus vs CER reference, standard +6°F offset">Validation 1: vs CER (+6°F)</a>
-        <a class="mains-link" href="validation2.html" target="_blank" rel="noopener" title="BC-Aus vs CER reference, no-offset variant">Validation 2: vs CER (0°F)</a>
-        <a class="mains-link" href="validation3.html" target="_blank" rel="noopener" title="BC-Aus vs EnergyPlus 0.5 m ground temperatures">Validation 3: vs ground 0.5 m</a>
-        <a class="mains-link" href="validation4.html" target="_blank" rel="noopener" title="BC-Aus vs EnergyPlus 2.0 m ground temperatures">Validation 4: vs ground 2.0 m</a>
-        <a class="mains-link" href="validation5.html" target="_blank" rel="noopener" title="The BC-Aus formula explained step by step">Validation 5: formula</a>
+        <a class="mains-link" href="pages/validation.html" target="_blank" rel="noopener" title="BC-Aus vs CER reference, standard +6°F offset">Validation 1: vs CER (+6°F)</a>
+        <a class="mains-link" href="pages/validation2.html" target="_blank" rel="noopener" title="BC-Aus vs CER reference, no-offset variant">Validation 2: vs CER (0°F)</a>
+        <a class="mains-link" href="pages/validation3.html" target="_blank" rel="noopener" title="BC-Aus vs EnergyPlus 0.5 m ground temperatures">Validation 3: vs ground 0.5 m</a>
+        <a class="mains-link" href="pages/validation4.html" target="_blank" rel="noopener" title="BC-Aus vs EnergyPlus 2.0 m ground temperatures">Validation 4: vs ground 2.0 m</a>
+        <a class="mains-link" href="pages/validation5.html" target="_blank" rel="noopener" title="The BC-Aus formula explained step by step">Validation 5: formula</a>
       </div>
       <div class="mains-links" style="margin-top:8px;">
-        <a class="mains-link" href="cer_comparison.html" target="_blank" rel="noopener">CER Comparison</a>
+        <a class="mains-link" href="pages/cer_comparison.html" target="_blank" rel="noopener">CER Comparison</a>
       </div>
     </div>`;
 }
@@ -4266,6 +4266,13 @@ function onTestingModeChange(){
   const testingMode = isTestingMode();
   document.body.classList.toggle("testing-mode", testingMode);
 
+  // Validation & references orb (next to "How this calculator works") is testing-only.
+  const orbWrap = document.getElementById("validationOrbWrap");
+  if (orbWrap){
+    orbWrap.hidden = !testingMode;
+    if (!testingMode) closeValidationPopover();
+  }
+
   const mainsEl = document.getElementById("mainsTempDisplay");
   if (mainsEl) mainsEl.style.display = testingMode ? "" : "none";
 
@@ -4611,7 +4618,7 @@ const HOW_IT_WORKS_DETAIL = {
   },
   "load-profiles": {
     title: "5b. Industry load profiles",
-    body: "Hourly heat and electricity demand schedules are generated for the selected industry — dairy, brewery, hotel, or aquatic centre. Each profile reflects realistic operating hours, seasonal demand patterns, and process temperatures calibrated to Australian commercial conditions.",
+    body: "Hourly heat and electricity demand schedules are generated for the selected industry — dairy, brewery, hotel, aquatic centre, or commercial laundry. Each profile reflects realistic operating hours, seasonal demand patterns, and process temperatures calibrated to Australian commercial conditions.",
     inputs: ["Industry type", "Collector area m² (scales demand totals)", "Mains water temperature (from BC-Aus model)"],
     outputs: ["Hourly heat demand Q_demand (kWh)", "Hourly electricity demand E_demand (kWh)"]
   },
@@ -4692,19 +4699,20 @@ function buildMiniSvg_solarGeo(){
 }
 
 function buildMiniSvg_pvtModel(){
-  return buildFlowSvg(520, 306, (box, arrow, lbl) => {
-    box(110, 10, 300, 38, ["GTI · Tin · Ta · wind · coefficients"]);
-    arrow(260, 48, 260, 76);
-    box(160, 78, 200, 36, ["Select thermal model"], "#fffbe6", "#d9c25c");
-    arrow(160, 96, 100, 136);
-    arrow(360, 96, 420, 136);
-    lbl(100, 128, "Model A");
-    lbl(420, 128, "Model B");
-    box(18, 138, 164, 62, ["Simple linear η_th", "uses inlet temp Tin", "directly"], "#f4f9ff", "#7da7cf");
-    box(338, 138, 164, 62, ["ISO 9806 Eq.12", "Newton iteration", "→ mean temp Tm"], "#f4f9ff", "#7da7cf");
-    arrow(100, 200, 185, 246);
-    arrow(420, 200, 335, 246);
-    box(120, 248, 280, 46, ["kWh electricity + kWh heat per hour"], "#eef6ff", "#7da7cf");
+  return buildFlowSvg(560, 330, (box, arrow, lbl) => {
+    box(120, 14, 320, 38, ["GTI · Tin · Ta · wind · coefficients"]);
+    arrow(280, 52, 280, 84);
+    box(180, 86, 200, 38, ["Select thermal model"], "#fffbe6", "#d9c25c");
+    // Branch arrows leave the bottom edge of the select box and fan out to the models.
+    arrow(232, 124, 150, 172);
+    arrow(328, 124, 410, 172);
+    lbl(128, 160, "Model A");
+    lbl(432, 160, "Model B");
+    box(44, 178, 168, 66, ["Simple linear η_th", "uses inlet temp Tin", "directly"], "#f4f9ff", "#7da7cf");
+    box(348, 178, 168, 66, ["ISO 9806 Eq.12", "Newton iteration", "→ mean temp Tm"], "#f4f9ff", "#7da7cf");
+    arrow(128, 244, 235, 261);
+    arrow(432, 244, 325, 261);
+    box(140, 264, 280, 48, ["kWh electricity + kWh heat per hour"], "#eef6ff", "#7da7cf");
   });
 }
 
@@ -4808,7 +4816,7 @@ function buildHowItWorksSvg(){
   // Right column: DEMAND
   box(520, 422, 300, 66, ["4b. Mains water temperature", "BC-Aus model (NREL method refitted to", "AS/NZS 4234 Australian climate zones)"], "#f2fbf6", "#8fc9a6", "#16202b", 0, "mains-temp");
   arrow(670, 488, 670, 520);
-  box(520, 522, 300, 66, ["5b. Industry load profiles", "dairy / brewery / hotel / aquatic schedules", "→ hourly heat + electricity demand"], "#f2fbf6", "#8fc9a6", "#16202b", 0, "load-profiles");
+  box(520, 522, 300, 66, ["5b. Industry load profiles", "dairy / brewery / hotel / aquatic / laundry", "→ hourly heat + electricity demand"], "#f2fbf6", "#8fc9a6", "#16202b", 0, "load-profiles");
 
   // Converge
   arrow(190, 588, 348, 642);
@@ -4847,7 +4855,7 @@ function openHowItWorks(ev){
 // ================================================================
 //  SHARED INDUSTRY RESULT BLOCKS
 //  One implementation of the savings / balance tables and the chart
-//  set used by all four industries, so wording and maths can't drift
+//  set used by every industry, so wording and maths can't drift
 //  between branches.
 // ================================================================
 const NATURAL_GAS_KG_CO2E_PER_GJ = 51.4; // NGA Factors 2025, scope 1 stationary energy
@@ -6656,6 +6664,34 @@ if (_sharedScenarioApplied){
   document.getElementById("modelAParams").style.display = modelBSelected ? "none" : "block";
   document.getElementById("modelBParams").style.display = modelBSelected ? "block" : "none";
 }
+// Validation & references popover — a testing-only menu next to "How this calculator works".
+function closeValidationPopover(){
+  const pop = document.getElementById("validationPopover");
+  const btn = document.getElementById("btnValidationMenu");
+  if (pop) pop.hidden = true;
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
+function toggleValidationPopover(){
+  const pop = document.getElementById("validationPopover");
+  const btn = document.getElementById("btnValidationMenu");
+  if (!pop || !btn) return;
+  const willShow = pop.hidden;
+  pop.hidden = !willShow;
+  btn.setAttribute("aria-expanded", String(willShow));
+}
+document.getElementById("btnValidationMenu")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleValidationPopover();
+});
+// Click outside or press Escape closes the popover.
+document.addEventListener("click", (e) => {
+  const wrap = document.getElementById("validationOrbWrap");
+  if (wrap && !wrap.contains(e.target)) closeValidationPopover();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeValidationPopover();
+});
+
 onTestingModeChange();
 // Header version label comes from APP_VERSION so it (and the PDF) update in one place.
 {
