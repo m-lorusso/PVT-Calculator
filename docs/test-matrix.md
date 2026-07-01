@@ -11,7 +11,7 @@ npm test
 | Script | Command | Scope | Offline | Current result |
 |---|---|---|---:|---|
 | Geometry | `npm run test:geometry` | Cooper declination, zenith, incidence, isotropic POA edge cases | Yes | Pass 17/17 |
-| Industry | `npm run test:industry` | Dairy, brewery, aquatic, hotel, commercial laundry demand formulas | Yes | Pass 27/27 |
+| Industry | `npm run test:industry` | Dairy, brewery, aquatic, hotel, commercial laundry demand formulas | Yes | Pass 30/30 |
 | Economics | `npm run test:economics` | CRF, NPV, LCOE split, heat savings, payback | Yes | Pass 12/12 |
 | Solar E2E | `npm run test:solar-e2e` | Existing pvlib comparison table for Sydney/Melbourne/Perth | Yes | Pass, table emitted |
 | Golden Reference | `npm run test:golden-reference` | pvlib golden PV-only/isotropic POA outputs | Yes | Pass 9/9 |
