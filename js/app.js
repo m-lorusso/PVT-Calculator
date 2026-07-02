@@ -3,7 +3,7 @@
 
 // Single source of truth for the app version shown in the header + PDF/report.
 // Keep in sync with the ?v= cache-bust query on css/js in index.html.
-const APP_VERSION = "13.10";
+const APP_VERSION = "13.11";
 
 // ================================================================
 //  DETAILS ANIMATION — replay slideDown every time a panel opens
